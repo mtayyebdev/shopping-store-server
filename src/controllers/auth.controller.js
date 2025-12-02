@@ -1,0 +1,472 @@
+import User from "../models/user.model.js";
+import { asyncHandler } from "../utils/trycatch.js";
+import { APIError } from "../utils/apiError.js";
+import jwt from "jsonwebtoken";
+import { isValidEmail } from "../utils/validationMethods.js";
+import {
+  UploadToCloudinary,
+  DeleteImageFromCloudinary,
+} from "../utils/uploadFile.js";
+
+const signUpController = asyncHandler(async (req, res) => {
+  const { name, email, password } = req.body;
+
+  const emailExist = await User.findOne({ email });
+
+  if (emailExist) {
+    throw new APIError("User already exist", 400);
+  }
+
+  const user = await User.create({
+    name,
+    email,
+    password,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Signup successfully.",
+  });
+});
+
+const signInController = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  const emailExist = await User.findOne({ email });
+
+  if (!emailExist) {
+    throw new APIError("Account not found.", 400);
+  }
+
+  const passwordExist = await emailExist.comparePassword(password);
+
+  if (!passwordExist) {
+    throw new APIError("Account not found.", 400);
+  }
+
+  const token = jwt.sign(
+    {
+      UserId: emailExist._id,
+      UserRole: emailExist.role,
+      UserEmail: emailExist.email,
+    },
+    process.env.JWT_TOKEN,
+    {
+      expiresIn: process.env.JWT_EXPIREIN,
+    }
+  );
+
+  await res.cookie("userToken", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: process.env.NODE_ENV === "production" ? "lax" : "none",
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "SignIn successfully.",
+  });
+});
+
+const logoutController = asyncHandler(async (req, res) => {
+  await res.cookie("userToken", {
+    maxAge: 0,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Logout successfully.",
+  });
+});
+
+const userController = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("-password");
+
+  if (!user) {
+    throw new APIError("Profile data not found.", 400);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Profile data found.",
+    data: user,
+  });
+});
+
+const updateUserProfileController = asyncHandler(async (req, res) => {
+  const { name, phone, email, gender, birthDay } = req.body;
+  const file = req.file || "";
+
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new APIError("User not found.", 404);
+  }
+
+  const publicid = user.avatar?.publicId;
+
+  if (email) {
+    if (!isValidEmail(email)) {
+      throw new APIError("Invalid email.", 400);
+    }
+    user.email = email;
+  }
+
+  if (name?.length > 3) user.name = name;
+  if (phone?.length > 10) user.phone = phone;
+  if (gender) user.gender = gender;
+  if (birthDay) user.birthDay = birthDay;
+
+  if (file?.path) {
+    const image = await UploadToCloudinary(file.path, "users");
+    if (image.secure_url) {
+      if (publicid) {
+        await DeleteImageFromCloudinary(publicid);
+      }
+
+      user.avatar.url = image.secure_url;
+      user.avatar.publicId = image.public_id;
+    }
+  }
+
+  await user.save();
+  return res.status(200).json({
+    success: true,
+    message: "Profile updated successfully.",
+  });
+});
+
+const createUserInfoController = asyncHandler(async (req, res) => {
+  const {
+    region,
+    city,
+    district,
+    phone,
+    name,
+    address,
+    landmark,
+    shipTo,
+    defaultShipping,
+  } = req.body;
+
+  const user = await User.findById(req.user._id);
+
+  const newAddress = {
+    region,
+    city,
+    district,
+    phone,
+    name,
+    address,
+    landmark,
+    shipTo,
+    defaultShipping,
+  };
+  user.addresses.push(newAddress);
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Address added successfully.",
+  });
+});
+
+const updateUserInfoController = asyncHandler(async (req, res) => {
+  const { region, city, district, phone, name, landmark, address, shipTo } =
+    req.body;
+  const { id } = req.params;
+
+  const user = await User.findById(req.user._id);
+  const userAddress = user.addresses?.find(
+    (info) => info._id.toString() === id
+  );
+
+  if (!userAddress) {
+    throw new APIError("User address not found.", 404);
+  }
+
+  if (region) {
+    userAddress.region = region;
+  }
+
+  if (city) {
+    userAddress.city = city;
+  }
+
+  if (district) {
+    userAddress.district = district;
+  }
+
+  if (phone) {
+    userAddress.phone = phone;
+  }
+
+  if (name) {
+    userAddress.name = name;
+  }
+
+  if (landmark) {
+    userAddress.landmark = landmark;
+  }
+
+  if (address) {
+    userAddress.address = address;
+  }
+
+  if (shipTo) {
+    userAddress.shipTo = shipTo;
+  }
+
+  await userAddress.save();
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Info updated successfully.",
+  });
+});
+
+const setDefaultShippingController = asyncHandler(async (req, res) => {
+  const { addressId } = req.params;
+
+  const user = await User.findById(req.user._id);
+  const userAddress = user.addresses?.find(
+    (info) => info._id.toString() === addressId
+  );
+
+  if (!userAddress) {
+    throw new APIError("User address not found.", 404);
+  }
+
+  user.addresses.forEach((info) => {
+    info.defaultShipping = false;
+  });
+
+  userAddress.defaultShipping = true;
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Default shipping address set successfully.",
+  });
+});
+
+const deleteUserInfoController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = await User.findById(req.user?._id);
+
+  const userAddresses = user.addresses?.filter(
+    (info) => info._id.toString() !== id
+  );
+
+  user.addresses = userAddresses;
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Info deleted successfully.",
+  });
+});
+
+const updatePasswordController = asyncHandler(async (req, res) => {
+  const { newPassword, oldPassword } = req.body;
+
+  if (!newPassword || !oldPassword) {
+    throw new APIError("Old password and new password are required.", 404);
+  }
+
+  const user = await User.findById(req.user?._id);
+
+  const isvalidPassword = await user.comparePassword(oldPassword);
+
+  if (!isvalidPassword) {
+    throw new APIError("Wrong old password.", 400);
+  }
+
+  if(newPassword.length<8){
+    throw new APIError("New password must be at least 8 characters.", 400);
+  }
+
+  user.password = newPassword;
+
+  user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Password updated successfully.",
+  });
+});
+
+// admin controllers.........
+const allUsersAdminController = asyncHandler(async (req, res) => {
+  const users = await User.find({}).select("-password");
+
+  return res.status(200).json({
+    success: true,
+    message: "User found.",
+    data: users,
+  });
+});
+
+const singleUserAdminController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    throw new APIError("User not found.", 400);
+  }
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    throw new APIError("User not found.", 400);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "User data found.",
+    data: user,
+  });
+});
+
+const deleteUserAdminController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    throw new APIError("User ID not found.", 404);
+  }
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    throw new APIError("User not found.", 404);
+  }
+
+  let publicid = user.avatar?.publicId;
+
+  try {
+    await user.deleteOne();
+
+    if (publicid) {
+      await DeleteImageFromCloudinary(publicid);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully.",
+    });
+  } catch (error) {
+    throw new APIError("Error deleting user or avatar: " + error.message, 500);
+  }
+});
+
+const updateUserAdminController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, email, password, gender, phone, birthDay } = req.body;
+  const file = req.file || "";
+
+  if (!id) {
+    throw new APIError("User not found.", 400);
+  }
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    throw new APIError("User not found.", 404);
+  }
+
+  if (email) {
+    if (!isValidEmail(email)) {
+      throw new APIError("Invalid email", 400);
+    }
+
+    user.email = email;
+  }
+
+  if (name) user.name = name;
+  if (phone) user.phone = phone;
+  if (birthDay) user.birthDay = birthDay;
+  if (gender) user.gender = gender;
+  if (password) user.password = password;
+
+  if (file?.path) {
+    const uploadFile = await UploadToCloudinary(file.path, "users");
+    if (uploadFile.secure_url) {
+      if (user.avatar?.publicId) {
+        await DeleteImageFromCloudinary(user.avatar.publicId);
+      }
+
+      user.avatar.url = uploadFile.secure_url;
+      user.avatar.publicId = uploadFile.public_id;
+    }
+  }
+
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "User updated successfully.",
+  });
+});
+
+const updateUserInfoAdminController = asyncHandler(async (req, res) => {
+  const {
+    region,
+    city,
+    district,
+    phone,
+    name,
+    landmark,
+    address,
+    shipTo,
+    defaultShipping,
+    defaultBilling,
+    infoId,
+  } = req.body;
+  const { userId } = req.params;
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new APIError("User not found.", 404);
+  }
+
+  const userAddress = user.addresses?.find((info) => info == infoId);
+
+  if (region) userAddress.region = region;
+  if (city) userAddress.city = city;
+  if (district) userAddress.district = district;
+  if (phone) userAddress.phone = phone;
+  if (name) userAddress.name = name;
+  if (landmark) userAddress.landmark = landmark;
+  if (address) userAddress.address = address;
+  if (shipTo) userAddress.shipTo = shipTo;
+  if (defaultShipping) userAddress.defaultShipping = defaultShipping;
+  if (defaultBilling) userAddress.defaultBilling = defaultBilling;
+
+  await userAddress.save();
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "User info updated successfully.",
+  });
+});
+
+export {
+  allUsersAdminController,
+  signInController,
+  signUpController,
+  logoutController,
+  updateUserAdminController,
+  updateUserInfoAdminController,
+  deleteUserAdminController,
+  singleUserAdminController,
+  updatePasswordController,
+  updateUserInfoController,
+  updateUserProfileController,
+  userController,
+  createUserInfoController,
+  setDefaultShippingController,
+  deleteUserInfoController
+};
