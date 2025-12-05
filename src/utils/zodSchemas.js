@@ -1,5 +1,6 @@
 import * as z from "zod";
 
+// User schemas......................
 const signUpSchema = z.object({
   name: z
     .string()
@@ -29,6 +30,7 @@ const userInfoSchema = z.object({
   defaultShipping: z.boolean().optional(),
 });
 
+// Product schemas..........................
 const productSchema = z.object({
   name: z.string().min(4, "Product name must be at least 4 characters"),
   price: z.number().min(1, "Product price must be at least 1"),
@@ -81,10 +83,35 @@ const updateProductSchema = z.object({
   imgsIdsToDelete: z.array(z.string()).optional(),
 });
 
+// Coupon schemas............
+const createCouponSchema = z.object({
+  code: z.string().min(8, "Coupon must be at least 10 characters."),
+  discountType: z.string(),
+  discountValue: z.number(),
+  minOrderAmount: z.number().optional(),
+  maxOrderAmount: z.number().optional(),
+  expiresAt: z.date(),
+  isActive: z.boolean().optional(),
+  usageLimit: z.number().optional(),
+});
+
+const updateCouponSchema = z.object({
+  code: z.string().optional(),
+  discountType: z.string().optional(),
+  discountValue: z.number().optional(),
+  minOrderAmount: z.number().optional(),
+  maxOrderAmount: z.number().optional(),
+  expiresAt: z.date().optional(),
+  isActive: z.boolean().optional(),
+  usageLimit: z.number().optional(),
+});
+
 export {
   signInSchema,
   signUpSchema,
   productSchema,
   userInfoSchema,
   updateProductSchema,
+  createCouponSchema,
+  updateCouponSchema
 };
