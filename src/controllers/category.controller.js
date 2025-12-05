@@ -25,7 +25,7 @@ const createCategoryAdminController = asyncHandler(async (req, res) => {
     throw new APIError("Category name is required.", 400);
   }
 
-  const categorySlug = slugify(name);
+  const categorySlug = slugify(name).toLowerCase();
 
   const image = {};
   if (file.path) {
@@ -41,7 +41,7 @@ const createCategoryAdminController = asyncHandler(async (req, res) => {
   const category = await Category.create({
     name,
     slug: categorySlug,
-    parent,
+    parent: parent || null,
     image,
   });
 
@@ -57,6 +57,7 @@ const createCategoryAdminController = asyncHandler(async (req, res) => {
 
 const categoriesAdminController = asyncHandler(async (req, res) => {
   const categories = await Category.find({});
+  
   return res.status(200).json({
     success: true,
     message: "Categories found",
@@ -96,7 +97,7 @@ const updateCategoryAdminController = asyncHandler(async (req, res) => {
 
   if (name) {
     category.name = name;
-    category.slug = slugify(name);
+    category.slug = slugify(name).toLowerCase();
   }
 
   if (parent) {

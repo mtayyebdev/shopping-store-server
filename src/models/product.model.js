@@ -8,7 +8,7 @@ const reviewSchema = new mongoose.Schema(
       ref: "User",
     },
     message: String,
-    images: [{ url: String, publicId: String }],
+    images: Array, // [{ url: String, publicId: String }]
     avatar: String,
     rating: {
       type: Number,
@@ -46,7 +46,7 @@ const productSchema = new mongoose.Schema(
       publicId: String,
     },
     images: {
-      type: [{ url: String, publicId: String }],
+      type: Array, // [{ url: String, publicId: String }]
       maxlength: 16,
       required: true,
     },
@@ -54,7 +54,7 @@ const productSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    discountPrice: {
+    oldPrice: {
       type: Number,
       required: true,
     },
@@ -90,7 +90,10 @@ const productSchema = new mongoose.Schema(
     shortDesc: String,
     longDesc: String,
     sku: String,
-    specifications: [{ label: String, content: String }],
+    specifications: {
+      type: Array, // [{ label: String, content: String }]
+      default: [],
+    },
     isFeatured: {
       type: Boolean,
       default: false,

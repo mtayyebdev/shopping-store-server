@@ -4,7 +4,7 @@ const cartItemSchema = new mongoose.Schema(
   {
     name: String,
     price: Number,
-    discountPrice: Number,
+    oldPrice: Number,
     quantity: {
       type: Number,
       default: 1,
@@ -29,6 +29,7 @@ const cartSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    item: cartItemSchema,
     totalPrice: {
       type: Number,
       default: 0,

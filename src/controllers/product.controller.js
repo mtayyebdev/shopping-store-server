@@ -63,7 +63,7 @@ const singleProductController = asyncHandler(async (req, res) => {
 });
 
 const searchProductController = asyncHandler(async (req, res) => {
-  const { s } = req.query;
+  const { s, c } = req.query;
   const {
     minPrice = 0,
     maxPrice = 10000000,
@@ -72,23 +72,41 @@ const searchProductController = asyncHandler(async (req, res) => {
     size = [],
     brand,
     sortBy = "bestMatch",
-    category,
     page = 1,
     limit = 10,
   } = req.body;
 
-  const matchStage = {
-    price: { $gte: minPrice, $lte: maxPrice },
-    ratings: { $gte: ratings },
-    color: color.length > 0 ? { $in: color } : { $exists: true },
-    size: size.length > 0 ? { $in: size } : { $exists: true },
-  };
+  const matchStage = {};
+
+  if (minPrice) {
+    matchStage.price = { ...matchStage.price, $gte: minPrice };
+  }
+  if (maxPrice) {
+    matchStage.price = { ...matchStage.price, $lte: maxPrice };
+  }
+
+  if (ratings) {
+    matchStage.ratings = { $gte: ratings };
+  }
+
+  if (color.length > 0) {
+    matchStage.color = { $in: color };
+  }
+
+  if (size.length > 0) {
+    matchStage.size = { $in: size };
+  }
 
   if (brand) {
     matchStage.brand = brand;
   }
 
-  const products = await Product.aggregate([
+  const sortStage = {};
+
+  if (sortBy === "LtoH") sortStage.price = 1;
+  if (sortBy === "HtoL") sortStage.price = -1;
+
+  const pipeline = [
     {
       $lookup: {
         from: "categories",
@@ -110,12 +128,15 @@ const searchProductController = asyncHandler(async (req, res) => {
         $or: [
           {
             name: {
-              $regex: s,
+              $regex: String(s),
               $options: "i",
             },
           },
           {
-            "categories_info.name": category,
+            "categories_info.slug": {
+              $regex: String(c),
+              $options: "i",
+            },
           },
         ],
       },
@@ -123,11 +144,13 @@ const searchProductController = asyncHandler(async (req, res) => {
     {
       $match: matchStage,
     },
-    {
-      $sort: {
-        price: sortBy === "LtoH" ? 1 : sortBy === "HtoL" ? -1 : 0,
-      },
-    },
+  ];
+
+  if (Object.keys(sortStage).length > 0) {
+    pipeline.push({ $sort: sortStage });
+  }
+
+  pipeline.push(
     {
       $skip: (page - 1) * limit,
     },
@@ -139,7 +162,7 @@ const searchProductController = asyncHandler(async (req, res) => {
         name: 1,
         slug: 1,
         price: 1,
-        discountPrice: 1,
+        oldPrice: 1,
         discount: 1,
         image: 1,
         ratings: 1,
@@ -149,8 +172,10 @@ const searchProductController = asyncHandler(async (req, res) => {
         ratings: 1,
         numReviews: 1,
       },
-    },
-  ]);
+    }
+  );
+
+  const products = await Product.aggregate(pipeline);
 
   return res.status(200).json({
     success: true,
@@ -197,6 +222,9 @@ const createProductReviewController = asyncHandler(async (req, res) => {
   };
 
   if (files?.length !== 0) {
+    if (files.length > 4) {
+      throw new APIError("You can upload maximum 4 images for review.", 400);
+    }
     await Promise.all(
       files.map(async (f) => {
         const uploadedImage = await UploadToCloudinary(f?.path, "reviews");
@@ -328,8 +356,20 @@ const deleteReviewController = asyncHandler(async (req, res) => {
     throw new APIError("Review not found.", 404);
   }
 
+  if (review.user.toString() !== req.user._id.toString()) {
+    throw new APIError("You are not authorized to delete this review.", 403);
+  }
+  const reviewImgsIds = [];
+  review.images.forEach((i) => {
+    reviewImgsIds.push(i.publicId);
+  });
+
   product.reviews = product.reviews.filter(
     (r) => r._id.toString() !== reviewId.toString()
+  );
+
+  await Promise.all(
+    reviewImgsIds.map(async (imgs) => await DeleteImageFromCloudinary(imgs))
   );
 
   product.numReviews = product.reviews.length;
@@ -353,13 +393,12 @@ const createProductAdminController = asyncHandler(async (req, res) => {
     brand = "No Brand",
     categoryId,
     price,
-    discountPrice,
+    oldPrice,
     stock,
-    discount,
     tags = [],
     shippingPrice,
     longDesc = "",
-    shortDesc,
+    shortDesc = "",
     returned,
     sku,
     specifications = [],
@@ -367,8 +406,8 @@ const createProductAdminController = asyncHandler(async (req, res) => {
     size = [],
     color = [],
   } = req.body;
-  const files = req.files || [];
-  const file = req.file || "";
+  const files = req.files ? req.files["images"] || [] : [];
+  const file = req.files ? req.files["image"][0] || {} : {};
 
   if (files.length === 0) {
     throw new APIError("Images are required", 400);
@@ -379,10 +418,10 @@ const createProductAdminController = asyncHandler(async (req, res) => {
   }
 
   if (!file.path) {
-    throw new APIError("Product view images is required", 400);
+    throw new APIError("Product view image is required", 400);
   }
 
-  const productSlug = slugify(name);
+  const productSlug = slugify(name).toLowerCase();
 
   let images = [];
   await Promise.all(
@@ -405,11 +444,13 @@ const createProductAdminController = asyncHandler(async (req, res) => {
     publicId: image.public_id,
   };
 
+  const discount = Math.round(((oldPrice - price) / oldPrice) * 100);
+
   const product = await Product.create({
     name,
     price,
     discount,
-    discountPrice,
+    oldPrice,
     tags,
     image: img,
     images,
@@ -485,25 +526,29 @@ const updateProductAdminController = asyncHandler(async (req, res) => {
   const {
     name,
     price,
-    discountPrice,
+    oldPrice,
     stock,
-    discount,
-    tags = [],
+    tags,
     shippingPrice,
     longDesc,
     shortDesc,
     returned,
     sku,
-    specifications = [],
+    specifications,
     isFeatured,
-    size = [],
-    color = [],
-    brand = "No Brand",
+    size,
+    color,
+    brand,
     category,
-    imgsIdsToDelete = [],
+    imgsIdsToDelete,
   } = req.body;
-  const files = req.files || [];
-  const file = req.file || "";
+
+  const files = req.files ? req.files["images"] || [] : [];
+  const file = req.files
+    ? req.files["image"]
+      ? req.files["image"][0]
+      : {}
+    : {};
 
   if (!id) {
     throw new APIError("Product Id is required.", 404);
@@ -517,12 +562,20 @@ const updateProductAdminController = asyncHandler(async (req, res) => {
 
   if (name) {
     product.name = name;
-    product.slug = slugify(name);
+    product.slug = slugify(name).toLowerCase();
+  }
+
+  if (price || oldPrice) {
+    const discount = Math.round(
+      (((oldPrice || product.oldPrice) - (price || product.price)) /
+        (oldPrice || product.oldPrice)) *
+        100
+    );
+    product.discount = discount;
   }
   product.price = price || product.price;
-  product.discountPrice = discountPrice || product.discountPrice;
+  product.oldPrice = oldPrice || product.oldPrice;
   product.stock = stock || product.stock;
-  product.discount = discount || product.discount;
   product.tags = tags || product.tags;
   product.shippingPrice = shippingPrice || product.shippingPrice;
   product.longDesc = longDesc || product.longDesc;
@@ -534,9 +587,7 @@ const updateProductAdminController = asyncHandler(async (req, res) => {
   product.color = color || product.color;
   product.brand = brand || product.brand;
   product.category = category || product.category;
-  if (product.isFeatured !== isFeatured) {
-    product.isFeatured = isFeatured;
-  }
+  product.isFeatured = isFeatured || product.isFeatured;
 
   if (files?.length > 0) {
     await Promise.all(
@@ -592,7 +643,38 @@ const deleteProductAdminController = asyncHandler(async (req, res) => {
     throw new APIError("Product Id is required.", 404);
   }
 
-  await Product.findByIdAndDelete(id);
+  const product = await Product.findById(id);
+
+  if (!product) {
+    throw new APIError("Product not found. please enter valid ID.", 400);
+  }
+
+  const productsIds = [];
+  productsIds.push(product.image?.publicId);
+  product.images?.forEach((i) => {
+    productsIds.push(i?.publicId);
+  });
+
+  product.reviews?.forEach((r) => {
+    if (r?.images.length > 0) {
+      r.images.forEach((img) => {
+        productsIds.push(img?.publicId);
+      });
+    }
+  });
+
+  await product
+    .deleteOne()
+    .then(async () => {
+      await Promise.all(
+        productsIds.map(async (pId) => {
+          await DeleteImageFromCloudinary(pId);
+        })
+      );
+    })
+    .catch((err) => {
+      throw new APIError(`Product deleting error: ${err}`, 400);
+    });
 
   return res.status(200).json({
     success: true,

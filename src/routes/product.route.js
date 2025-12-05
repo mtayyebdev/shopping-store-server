@@ -21,13 +21,15 @@ import {
   verifyUser,
 } from "../middlewares/verifyUser.middleware.js";
 import { upload } from "../utils/uploadFile.js";
+import { validateWithZod } from "../middlewares/zodValidation.middleware.js";
+import { updateProductSchema, productSchema } from "../utils/zodSchemas.js";
 
 const ProductRouter = express.Router();
 
 // public routes...............
 ProductRouter.route("/create-review/:productId").post(
   verifyUser,
-  upload.array("images"),
+  upload.array("images",4),
   createProductReviewController
 );
 ProductRouter.route("/delete-review/:productId/:reviewId").delete(
@@ -47,8 +49,11 @@ ProductRouter.route("/search").get(searchProductController);
 ProductRouter.route("/admin/create").post(
   verifyUser,
   authorizeUser(["admin"]),
-  upload.single("image"),
-  upload.array("images", 16),
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "images", maxCount: 16 },
+  ]),
+  validateWithZod(productSchema),
   createProductAdminController
 );
 ProductRouter.route("/admin/products").get(
@@ -64,8 +69,11 @@ ProductRouter.route("/admin/product/:id").get(
 ProductRouter.route("/admin/update/:id").patch(
   verifyUser,
   authorizeUser(["admin"]),
-  upload.single("image"),
-  upload.array("images"),
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "images", maxCount: 16 },
+  ]),
+  validateWithZod(updateProductSchema),
   updateProductAdminController
 );
 ProductRouter.route("/admin/delete/:id").delete(
