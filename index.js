@@ -10,6 +10,7 @@ import { AuthRouter } from "./src/routes/auth.route.js";
 import { CategoryRouter } from "./src/routes/category.route.js";
 import { ProductRouter } from "./src/routes/product.route.js";
 import { CouponRouter } from "./src/routes/coupon.route.js";
+import { CartRouter } from "./src/routes/cart.route.js";
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/api/auth", AuthRouter);
 app.use("/api/category", CategoryRouter);
 app.use("/api/product", ProductRouter);
 app.use("/api/coupon", CouponRouter);
+app.use("/api/cart", CartRouter);
 
 app.use(errorHandler);
 
