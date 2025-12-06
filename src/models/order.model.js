@@ -14,8 +14,14 @@ const orderSchema = new mongoose.Schema(
     },
     orderStatus: {
       type: String,
-      enum: ["Pending", "Processing", "Shipped", "Delivered","Cancelled"],
-      default: "Pending",
+      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      default: "pending",
+    },
+    orderId: {
+      type: String,
+      required: true,
+      unique: true,
+      uppercase: true,
     },
     items: [
       {
@@ -35,31 +41,31 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    paymentMethod:{
-        type:String,
-        enum:["Strip","Paypal","COD","JazzCash","EasyPaisa"],
-        default:"COD"
+    paymentMethod: {
+      type: String,
+      enum: ["strip", "paypal", "cod", "jazzcash", "easypaisa"],
+      default: "cod",
     },
-    paymentResult:{
-        id:String,
-        status:String,
-        update_time:String,
-        email_address:String
+    paymentResult: {
+      id: String,
+      status: String,
+      update_time: String,
+      email_address: String,
     },
-    itemsPrice:Number,
-    shippingPrice:Number,
-    taxPrice:Number,
-    totalPrice:Number,
-    isPaid:{
-        type:Boolean,
-        default:false
+    itemsPrice: Number,
+    shippingPrice: Number,
+    taxPrice: Number,
+    totalPrice: Number,
+    isPaid: {
+      type: Boolean,
+      default: false,
     },
-    paidAt:Date,
-    isDelivered:{
-         type:Boolean,
-        default:false
+    paidAt: Date,
+    isDelivered: {
+      type: Boolean,
+      default: false,
     },
-    deliveredAt:Date,
+    deliveredAt: Date,
   },
   { timestamps: true }
 );

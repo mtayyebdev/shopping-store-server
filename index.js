@@ -11,6 +11,7 @@ import { CategoryRouter } from "./src/routes/category.route.js";
 import { ProductRouter } from "./src/routes/product.route.js";
 import { CouponRouter } from "./src/routes/coupon.route.js";
 import { CartRouter } from "./src/routes/cart.route.js";
+import { OrderRouter } from "./src/routes/order.route.js";
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use("/api/category", CategoryRouter);
 app.use("/api/product", ProductRouter);
 app.use("/api/coupon", CouponRouter);
 app.use("/api/cart", CartRouter);
+app.use("/api/order", OrderRouter);
 
 app.use(errorHandler);
 

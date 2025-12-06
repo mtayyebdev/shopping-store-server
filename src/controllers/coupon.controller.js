@@ -79,7 +79,7 @@ const useCouponController = asyncHandler(async (req, res) => {
 });
 
 // Coupon Admin controllers...................
-const createCouponController = asyncHandler(async (req, res) => {
+const createCouponAdminController = asyncHandler(async (req, res) => {
   const {
     code,
     discountType,
@@ -120,7 +120,7 @@ const createCouponController = asyncHandler(async (req, res) => {
   });
 });
 
-const couponsController = asyncHandler(async (req, res) => {
+const couponsAdminController = asyncHandler(async (req, res) => {
   const coupons = await Coupon.find({});
 
   return res.status(200).json({
@@ -130,7 +130,7 @@ const couponsController = asyncHandler(async (req, res) => {
   });
 });
 
-const singleCouponController = asyncHandler(async (req, res) => {
+const singleCouponAdminController = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!id) {
@@ -150,7 +150,7 @@ const singleCouponController = asyncHandler(async (req, res) => {
   });
 });
 
-const updateCouponController = asyncHandler(async (req, res) => {
+const updateCouponAdminController = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const {
     code,
@@ -190,7 +190,7 @@ const updateCouponController = asyncHandler(async (req, res) => {
   });
 });
 
-const deleteCouponController = asyncHandler(async (req, res) => {
+const deleteCouponAdminController = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
   if (!id) {
@@ -213,9 +213,9 @@ const deleteCouponController = asyncHandler(async (req, res) => {
 
 export {
   useCouponController,
-  couponsController,
-  deleteCouponController,
-  updateCouponController,
-  createCouponController,
-  singleCouponController
+  couponsAdminController,
+  deleteCouponAdminController,
+  updateCouponAdminController,
+  createCouponAdminController,
+  singleCouponAdminController
 };
