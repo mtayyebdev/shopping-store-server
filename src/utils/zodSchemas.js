@@ -85,12 +85,12 @@ const updateProductSchema = z.object({
 
 // Coupon schemas............
 const createCouponSchema = z.object({
-  code: z.string().min(8, "Coupon must be at least 10 characters."),
+  code: z.string().min(8, "Coupon code must be at least 8 characters."),
   discountType: z.string(),
   discountValue: z.number(),
   minOrderAmount: z.number().optional(),
   maxOrderAmount: z.number().optional(),
-  expiresAt: z.date(),
+  expiresIn: z.number().optional(),
   isActive: z.boolean().optional(),
   usageLimit: z.number().optional(),
 });
@@ -101,7 +101,7 @@ const updateCouponSchema = z.object({
   discountValue: z.number().optional(),
   minOrderAmount: z.number().optional(),
   maxOrderAmount: z.number().optional(),
-  expiresAt: z.date().optional(),
+  expiresIn: z.number().optional(),
   isActive: z.boolean().optional(),
   usageLimit: z.number().optional(),
 });

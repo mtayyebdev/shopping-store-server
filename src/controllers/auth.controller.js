@@ -163,6 +163,12 @@ const createUserInfoController = asyncHandler(async (req, res) => {
     shipTo,
     defaultShipping,
   };
+
+  if (defaultShipping == true && user?.addresses?.length > 0) {
+    const userAddress = user.addresses.find((a) => a.defaultShipping === true);
+    userAddress.defaultShipping = false;
+  }
+
   user.addresses.push(newAddress);
   await user.save();
 
@@ -284,7 +290,7 @@ const updatePasswordController = asyncHandler(async (req, res) => {
     throw new APIError("Wrong old password.", 400);
   }
 
-  if(newPassword.length<8){
+  if (newPassword.length < 8) {
     throw new APIError("New password must be at least 8 characters.", 400);
   }
 
@@ -468,5 +474,5 @@ export {
   userController,
   createUserInfoController,
   setDefaultShippingController,
-  deleteUserInfoController
+  deleteUserInfoController,
 };

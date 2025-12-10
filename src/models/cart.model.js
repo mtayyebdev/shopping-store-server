@@ -19,8 +19,12 @@ const cartItemSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
+    shippingFee: {
+      type: Number,
+      default: 0,
+    },
   },
-  { timestamps: true }
+  { _id: false }
 );
 const cartSchema = new mongoose.Schema(
   {

@@ -1,22 +1,26 @@
 import Coupon from "../models/coupon.model.js";
 import { APIError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/trycatch.js";
+import * as z from "zod";
 
 const useCouponController = asyncHandler(async (req, res) => {
   const { code, totalAmount } = req.body;
 
-  if (!code) {
-    throw new APIError("Coupon code not found.", 404);
+  const validate = z.object({
+    code: z.string().min(1, "Coupon code is required."),
+    totalAmount: z
+      .number("Total amount must be a number.")
+      .min(0.01, "Total amount must be greater than 0."),
+  });
+
+  const parsedData = validate.safeParse({ code, totalAmount });
+
+  if (!parsedData.success) {
+    const error = parsedData.error.issues[0].message;
+    throw new APIError(error, 400);
   }
 
-  if (totalAmount === 0) {
-    throw new APIError(
-      "Please select at least 1 Product to apply coupon code.",
-      404
-    );
-  }
-
-  const coupon = await Coupon.findOne({ code });
+  const coupon = await Coupon.findOne({ code: code?.toUpperCase() });
 
   if (!coupon) {
     throw new APIError("Invalid coupon code.", 400);
@@ -86,7 +90,7 @@ const createCouponAdminController = asyncHandler(async (req, res) => {
     discountValue,
     minOrderAmount,
     maxOrderAmount,
-    expiresAt,
+    expiresIn,
     isActive,
     usageLimit,
   } = req.body;
@@ -106,7 +110,9 @@ const createCouponAdminController = asyncHandler(async (req, res) => {
     isActive,
     minOrderAmount,
     maxOrderAmount,
-    expiresAt,
+    expiresAt: expiresIn
+      ? new Date(Date.now() + Number(expiresIn) * 24 * 60 * 60 * 1000)
+      : "",
     usageLimit,
   });
 
@@ -158,7 +164,7 @@ const updateCouponAdminController = asyncHandler(async (req, res) => {
     discountValue,
     minOrderAmount,
     maxOrderAmount,
-    expiresAt,
+    expiresIn,
     isActive,
     usageLimit,
   } = req.body;
@@ -173,12 +179,14 @@ const updateCouponAdminController = asyncHandler(async (req, res) => {
     throw new APIError("Coupon not found.", 404);
   }
 
-  coupon.code = code.toUpperCase() || coupon.code;
+  coupon.code = code?.toUpperCase() || coupon.code;
   coupon.discountType = discountType || coupon.discountType;
   coupon.discountValue = discountValue || coupon.discountValue;
   coupon.minOrderAmount = minOrderAmount || coupon.minOrderAmount;
   coupon.maxOrderAmount = maxOrderAmount || coupon.maxOrderAmount;
-  coupon.expiresAt = expiresAt || coupon.expiresAt;
+  coupon.expiresAt = expiresIn
+    ? new Date(Date.now() + Number(expiresIn) * 24 * 60 * 60 * 1000)
+    : coupon.expiresAt;
   coupon.isActive = isActive || coupon.isActive;
   coupon.usageLimit = usageLimit || coupon.usageLimit;
 
@@ -217,5 +225,5 @@ export {
   deleteCouponAdminController,
   updateCouponAdminController,
   createCouponAdminController,
-  singleCouponAdminController
+  singleCouponAdminController,
 };

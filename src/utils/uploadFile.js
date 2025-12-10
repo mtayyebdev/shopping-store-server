@@ -1,4 +1,4 @@
-import multer,{diskStorage} from "multer";
+import multer, { diskStorage } from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { APIError } from "./apiError.js";
 

@@ -11,7 +11,7 @@ const createCartController = asyncHandler(async (req, res) => {
     throw new APIError("Product not found.", 404);
   }
 
-  if (quantity < 1) {
+  if (!quantity || Number(quantity) < 1) {
     throw new APIError("Product quantity required at least 1.", 404);
   }
 
@@ -34,6 +34,7 @@ const createCartController = asyncHandler(async (req, res) => {
     color,
     size,
     product: product._id,
+    shippingFee: product.shippingPrice,
   };
 
   const cart = await Cart.create({
@@ -79,7 +80,7 @@ const deleteManyCartsController = asyncHandler(async (req, res) => {
   const { cartsIds } = req.body;
 
   if (!cartsIds || cartsIds.length === 0) {
-    throw new APIError("Please select carts to deleted.");
+    throw new APIError("Please select carts to delete.");
   }
 
   await Promise.all(cartsIds.map(async (c) => await Cart.findByIdAndDelete(c)));
@@ -109,7 +110,7 @@ const updateCartController = asyncHandler(async (req, res) => {
   }
 
   const totalprice = cart?.item?.price * quantity;
-  cart.quantity = quantity;
+  cart.item.quantity = quantity;
   cart.totalPrice = totalprice;
 
   await cart.save();

@@ -81,7 +81,10 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
     reviews: [reviewSchema],
-    sold: Number,
+    sold: {
+      type: Number,
+      default: 0,
+    },
     shippingPrice: {
       type: Number,
       default: 0,

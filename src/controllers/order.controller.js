@@ -29,9 +29,11 @@ const createOrderController = asyncHandler(async (req, res) => {
     shippingPrice,
     taxPrice,
     totalPrice,
+    user: req.user._id,
   });
 
   const userCarts = await Cart.find({ user: req.user._id });
+
   const selectedCarts = userCarts.filter((c) =>
     cartsIds.includes(c._id.toString())
   );
@@ -46,7 +48,10 @@ const createOrderController = asyncHandler(async (req, res) => {
         quantity: c.item.quantity,
         image: c.item.image,
       });
-      productsIds.push({ pId: c.item.product, sold: c.item.quantity });
+      productsIds.push({
+        pId: c.item.product.toString(),
+        sold: Number(c.item.quantity),
+      });
     })
   );
 
@@ -69,7 +74,6 @@ const createOrderController = asyncHandler(async (req, res) => {
     order.shippingAddress.landmark = userAddress.landmark;
     order.shippingAddress.shipTo = userAddress.shipTo;
   } else if (shippingAddress) {
-    
     order.shippingAddress.address = shippingAddress?.address;
     order.shippingAddress.phone = shippingAddress?.phone;
     order.shippingAddress.username = shippingAddress?.username;
@@ -120,7 +124,7 @@ const singleOrderController = asyncHandler(async (req, res) => {
   }
 
   const order = await Order.findOne({
-    $and: [{ user: req.user._id }, { _id: id }],
+    $and: [{ user: req.user._id }, { orderId: id }],
   }).select("-paymentResult");
 
   if (!order) {
@@ -136,21 +140,18 @@ const singleOrderController = asyncHandler(async (req, res) => {
 
 const cancelOrderController = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { orderStatus } = req.body;
 
   if (!id) {
     throw new APIError("Order Id not found.", 404);
   }
 
-  if (!orderStatus) {
-    throw new APIError("Order status not found.", 404);
+  const order = await Order.findOne({ orderId: id, user: req.user._id });
+
+  if (order.orderStatus !== "pending") {
+    throw new APIError("You cannot cancel this order.", 400);
   }
 
-  const order = await Order.findById(id);
-
-  if (orderStatus === "cancelled" && order.orderStatus === "pending") {
-    order.orderStatus = "cancelled";
-  }
+  order.orderStatus = "cancelled";
 
   await order.save();
 
@@ -169,15 +170,20 @@ const updateOrderPaymentController = asyncHandler(async (req, res) => {
   }
 
   if (paymentMethod !== "cod") {
-    throw new APIError("Please select payment method.", 404);
+    throw new APIError(
+      "Please select payment method Cash on Delivery, Other payment methods are coming soon.",
+      404
+    );
   }
 
-  const order = await Order.findById(id);
+  const order = await Order.findOne({ orderId: id, user: req.user._id });
 
   if (paymentMethod === "cod") {
     order.paymentMethod = paymentMethod;
     order.orderStatus = "processing";
   }
+
+  await order.save();
 
   return res.status(200).json({
     success: true,
@@ -193,6 +199,7 @@ const ordersAdminController = asyncHandler(async (req, res) => {
     success: true,
     message: "Orders found.",
     data: orders,
+    count: orders.length,
   });
 });
 
@@ -245,12 +252,22 @@ const updateOrderStatusAdminController = asyncHandler(async (req, res) => {
 
   const order = await Order.findById(id);
 
-  if (orderStatus === "delivered") {
-    order.isDelivered = true;
-    order.isPaid = true;
-    order.paidAt = new Date().toLocaleString();
-    order.deliveredAt = new Date().toLocaleString();
-    order.orderStatus = "delivered";
+  if (orderStatus === "shipped" && order.orderStatus === "processing") {
+    order.orderStatus = "shipped";
+  } else if (orderStatus === "delivered" && order.orderStatus === "shipped") {
+    if (order.paymentMethod === "cod") {
+      order.isDelivered = true;
+      order.isPaid = true;
+      order.paidAt = new Date().toLocaleString();
+      order.deliveredAt = new Date().toLocaleString();
+      order.orderStatus = "delivered";
+    } else {
+      order.isDelivered = true;
+      order.deliveredAt = new Date().toLocaleString();
+      order.orderStatus = "delivered";
+    }
+  }else{
+    throw new APIError("You cannot update this order status.", 400);
   }
 
   await order.save();

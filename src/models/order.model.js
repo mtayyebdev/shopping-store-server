@@ -19,7 +19,6 @@ const orderSchema = new mongoose.Schema(
     },
     orderId: {
       type: String,
-      required: true,
       unique: true,
       uppercase: true,
     },
@@ -35,6 +34,7 @@ const orderSchema = new mongoose.Schema(
         quantity: Number,
         image: String,
       },
+      { _id: false },
     ],
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,7 +44,7 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: ["strip", "paypal", "cod", "jazzcash", "easypaisa"],
-      default: "cod",
+      default: "",
     },
     paymentResult: {
       id: String,
