@@ -4,6 +4,7 @@ import Cart from "../models/cart.model.js";
 import User from "../models/user.model.js";
 import { asyncHandler } from "../utils/trycatch.js";
 import { APIError } from "../utils/apiError.js";
+import { sendEmail } from "../utils/sendEmail.js";
 
 const createOrderController = asyncHandler(async (req, res) => {
   const {
@@ -99,7 +100,88 @@ const createOrderController = asyncHandler(async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    message: "Order added successfully.",
+    message: "Order placed successfully.",
+    data: order.orderId,
+  });
+});
+
+const createDirectOrderController = asyncHandler(async (req, res) => {
+  const {
+    productId,
+    quantity,
+    size,
+    color,
+    shippingAddress,
+    totalPrice,
+    taxPrice,
+  } = req.body;
+
+  if (!productId || !quantity) {
+    throw new APIError("Product not found.", 404);
+  }
+  if (!shippingAddress) {
+    throw new APIError("Please enter shipping address.", 400);
+  }
+
+  const product = await Product.findById(productId).select("-images");
+
+  const order = await Order.create({
+    shippingPrice: product.shippingPrice,
+    totalPrice,
+    taxPrice,
+    itemsPrice: product.price,
+    user: null,
+  });
+
+  order.shippingAddress.address = shippingAddress?.address;
+  order.shippingAddress.phone = shippingAddress?.phone;
+  order.shippingAddress.username = shippingAddress?.username;
+  order.shippingAddress.city = shippingAddress?.city;
+  order.shippingAddress.region = shippingAddress?.region;
+  order.shippingAddress.district = shippingAddress?.district;
+  order.shippingAddress.landmark = shippingAddress?.landmark;
+  order.shippingAddress.shipTo = shippingAddress?.shipTo;
+  order.shippingAddress.email = shippingAddress?.email;
+
+  order.items.push({
+    product: product._id,
+    name: product.name,
+    price: product.price,
+    quantity,
+    image: product.image.url,
+    color,
+    size,
+  });
+
+  order.orderId = order._id.toString().toUpperCase();
+
+  await order.save();
+
+  await sendEmail({
+    to: order.shippingAddress?.email,
+    subject: ` Order Confirmation - ${order.orderId} `,
+    html: `<h1> Thank you for your order! </h1>
+    <p> Your order with Order ID: <strong> ${order.orderId} </strong> has been successfully placed. We will notify you once it is shipped. </p>
+    <h3> Shipping Address: </h3>
+    <p> ${order.shippingAddress?.username} <br/>
+    ${order.shippingAddress?.address} <br/>
+    ${order.shippingAddress?.city}, ${order.shippingAddress?.region} <br/>
+    ${order.shippingAddress?.district} <br/>
+    Phone: ${order.shippingAddress?.phone} <br/>
+    </p>
+    <h3> Order Details: </h3>
+    <p> Product Name: ${order.items[0].name} <br/>
+    Quantity: ${order.items[0].quantity} <br/>
+    Price: $${order.items[0].price} <br/>
+    Total Price: $${order.totalPrice} <br/>
+    </p>
+    <p> We appreciate your business! </p>
+    `,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Order placed successfully.",
     data: order.orderId,
   });
 });
@@ -266,7 +348,7 @@ const updateOrderStatusAdminController = asyncHandler(async (req, res) => {
       order.deliveredAt = new Date().toLocaleString();
       order.orderStatus = "delivered";
     }
-  }else{
+  } else {
     throw new APIError("You cannot update this order status.", 400);
   }
 
@@ -288,4 +370,5 @@ export {
   cancelOrderController,
   updateOrderStatusAdminController,
   updateOrderPaymentController,
+  createDirectOrderController,
 };

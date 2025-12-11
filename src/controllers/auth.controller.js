@@ -1,12 +1,15 @@
 import User from "../models/user.model.js";
+import Otp from "../models/otp.model.js";
 import { asyncHandler } from "../utils/trycatch.js";
 import { APIError } from "../utils/apiError.js";
 import jwt from "jsonwebtoken";
 import { isValidEmail } from "../utils/validationMethods.js";
+import { sendEmail } from "../utils/sendEmail.js";
 import {
   UploadToCloudinary,
   DeleteImageFromCloudinary,
 } from "../utils/uploadFile.js";
+import { generateOTP } from "../utils/generateOTP.js";
 
 const signUpController = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -17,11 +20,14 @@ const signUpController = asyncHandler(async (req, res) => {
     throw new APIError("User already exist", 400);
   }
 
-  const user = await User.create({
-    name,
-    email,
-    password,
-  });
+  await User.create(
+    {
+      name,
+      email,
+      password,
+    },
+    { validateBeforeSave: true }
+  );
 
   return res.status(200).json({
     success: true,
@@ -304,6 +310,151 @@ const updatePasswordController = asyncHandler(async (req, res) => {
   });
 });
 
+const forgotPasswordController = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new APIError("Email is required.", 404);
+  }
+
+  if (!isValidEmail(email)) {
+    throw new APIError("Invalid email.", 400);
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw new APIError("Invalid email.", 400);
+  }
+
+  const resetToken = await user.resetPassToken();
+  await user.save({ validateBeforeSave: false });
+
+  const resetURL = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+  const message = `
+    <h1>Password Reset</h1>
+    <p>Click the link below to reset your password:</p>
+    <a href="${resetURL}" target="_blank">${resetURL}</a>
+  `;
+
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset",
+      html: message,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Reset link sent to email.",
+    });
+  } catch (error) {
+    user.resetPasswordExpire = undefined;
+    user.resetPasswordToken = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    throw new APIError("Email could not be sent.", 400);
+  }
+});
+
+const resetPasswordController = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  if (!token) {
+    throw new APIError("Reset token is required.", 404);
+  }
+
+  if (!password) {
+    throw new APIError("New Password is required.", 404);
+  }
+
+  const verifyToken = jwt.verify(token, process.env.JWT_TOKEN);
+
+  if (!verifyToken) {
+    throw new APIError("Invalid reset Token.", 400);
+  }
+
+  const user = await User.findOne({
+    resetPasswordToken: token,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    throw new APIError("Invalid or expired token.", 400);
+  }
+
+  user.password = password;
+  user.resetPasswordExpire = undefined;
+  user.resetPasswordToken = undefined;
+
+  await user.save();
+
+  return res
+    .status(200)
+    .json({ success: true, message: "Password reset successful" });
+});
+
+const sendOTPController = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new APIError("Email is required", 404);
+  }
+
+  await Otp.deleteOne({ email });
+
+  const newOTP = generateOTP();
+  const expiresAtOTP = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  const code = newOTP;
+
+  await Otp.create({ email, code, expiresAt: expiresAtOTP });
+
+  await sendEmail({
+    to: email,
+    subject: "Email Verification - OTP",
+    html: `<h2>Your OTP Code</h2><p>Your verification code is: <strong>${code}</strong></p><p>This code expires in 10 minutes.</p>`,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "OTP send successfully to your email.",
+  });
+});
+
+const verifyOTPController = asyncHandler(async (req, res) => {
+  const { email, otpCode } = req.body;
+
+  if (!email || !otpCode) {
+    throw new APIError("Email and OTP code are required.", 404);
+  }
+
+  const otpExist = await Otp.findOne({ email });
+
+  if (!otpExist) {
+    throw new APIError("OTP not found or expired.", 400);
+  }
+
+  if (new Date() > otpExist.expiresAt) {
+    await Otp.deleteOne({ email });
+    throw new APIError("OTP has expired.", 400);
+  }
+  
+  if (otpCode !== otpExist?.code) {
+    throw new APIError("Invalid OTP code.", 400);
+  }
+
+  await Otp.deleteOne({ email });
+
+  return res.status(200).json({
+    success: true,
+    message: "Email verified successfully",
+    verified: true,
+  });
+});
+
 // admin controllers.........
 const allUsersAdminController = asyncHandler(async (req, res) => {
   const users = await User.find({}).select("-password");
@@ -475,4 +626,8 @@ export {
   createUserInfoController,
   setDefaultShippingController,
   deleteUserInfoController,
+  forgotPasswordController,
+  resetPasswordController,
+  sendOTPController,
+  verifyOTPController,
 };

@@ -20,13 +20,12 @@ const useCouponController = asyncHandler(async (req, res) => {
     throw new APIError(error, 400);
   }
 
-  const coupon = await Coupon.findOne({ code: code?.toUpperCase() });
+  const coupon = await Coupon.findOne({
+    code: code?.toUpperCase(),
+    isActive: true,
+  });
 
   if (!coupon) {
-    throw new APIError("Invalid coupon code.", 400);
-  }
-
-  if (!coupon.isActive) {
     throw new APIError("Invalid coupon code.", 400);
   }
 
@@ -34,16 +33,6 @@ const useCouponController = asyncHandler(async (req, res) => {
 
   if (currentDate > coupon.expiresAt) {
     throw new APIError("This coupon code is expired.", 400);
-  }
-
-  if (coupon?.usageLimit !== 0) {
-    const currentUser = coupon.usedBy.find(
-      (c) => c.userId.toString() === req.user._id.toString()
-    );
-
-    if (currentUser && currentUser.usedCount >= coupon.usageLimit) {
-      throw new APIError("You've already used this coupon code.", 400);
-    }
   }
 
   if (coupon.minOrderAmount > Number(totalAmount)) {
@@ -60,14 +49,26 @@ const useCouponController = asyncHandler(async (req, res) => {
     );
   }
 
-  const usageUser = coupon.usedBy.find(
-    (c) => c.userId.toString() === req.user._id.toString()
-  );
+  if (req.user?._id) {
+    if (coupon?.usageLimit !== 0) {
+      const currentUser = coupon.usedBy.find(
+        (c) => c.userId.toString() === req.user._id.toString()
+      );
 
-  if (usageUser) {
-    usageUser.usedCount += 1;
-  } else {
-    coupon.usedBy.push({ userId: req.user._id, usedCount: 1 });
+      if (currentUser && currentUser.usedCount >= coupon.usageLimit) {
+        throw new APIError("You've already used this coupon code.", 400);
+      }
+    }
+
+    const usageUser = coupon.usedBy.find(
+      (c) => c.userId.toString() === req.user._id.toString()
+    );
+
+    if (usageUser) {
+      usageUser.usedCount += 1;
+    } else {
+      coupon.usedBy.push({ userId: req.user._id, usedCount: 1 });
+    }
   }
 
   await coupon.save();

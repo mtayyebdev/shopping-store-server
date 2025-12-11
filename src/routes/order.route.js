@@ -8,6 +8,7 @@ import {
   singleOrderController,
   updateOrderPaymentController,
   updateOrderStatusAdminController,
+  createDirectOrderController,
 } from "../controllers/order.controller.js";
 import {
   authorizeUser,
@@ -18,6 +19,7 @@ import express from "express";
 const OrderRouter = express.Router();
 
 OrderRouter.route("/create").post(verifyUser, createOrderController);
+OrderRouter.route("/buy-now").post(createDirectOrderController);
 OrderRouter.route("/orders").get(verifyUser, ordersController);
 OrderRouter.route("/single-order/:id").get(verifyUser, singleOrderController);
 OrderRouter.route("/cancel/:id").patch(verifyUser, cancelOrderController);

@@ -15,13 +15,21 @@ import {
   createUserInfoController,
   setDefaultShippingController,
   deleteUserInfoController,
+  forgotPasswordController,
+  resetPasswordController,
+  sendOTPController,
+  verifyOTPController,
 } from "../controllers/auth.controller.js";
 import {
   verifyUser,
   authorizeUser,
 } from "../middlewares/verifyUser.middleware.js";
 import { validateWithZod } from "../middlewares/zodValidation.middleware.js";
-import { signInSchema, signUpSchema,userInfoSchema } from "../utils/zodSchemas.js";
+import {
+  signInSchema,
+  signUpSchema,
+  userInfoSchema,
+} from "../utils/zodSchemas.js";
 import { upload } from "../utils/uploadFile.js";
 
 const AuthRouter = express.Router();
@@ -62,6 +70,11 @@ AuthRouter.route("/delete-info/:id").delete(
   verifyUser,
   deleteUserInfoController
 );
+AuthRouter.route("/forget-password").post(forgotPasswordController);
+AuthRouter.route("/reset-password/:token").post(resetPasswordController);
+
+AuthRouter.route("/send-otp").post(sendOTPController);
+AuthRouter.route("/verify-otp").post(verifyOTPController);
 
 // Admin routes................................
 AuthRouter.route("/admin/users").get(

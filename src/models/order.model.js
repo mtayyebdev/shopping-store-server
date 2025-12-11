@@ -5,6 +5,7 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: {
       username: String,
       phone: String,
+      email:String,
       address: String,
       city: String,
       region: String,
@@ -33,18 +34,20 @@ const orderSchema = new mongoose.Schema(
         price: Number,
         quantity: Number,
         image: String,
+        color:String,
+        size:String
       },
       { _id: false },
     ],
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
     },
     paymentMethod: {
       type: String,
       enum: ["strip", "paypal", "cod", "jazzcash", "easypaisa"],
-      default: "",
+      required:false,
     },
     paymentResult: {
       id: String,
