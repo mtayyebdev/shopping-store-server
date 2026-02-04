@@ -1,7 +1,7 @@
 import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
 import Cart from "../models/cart.model.js";
-import User from "../models/user.model.js";
+import Review from "../models/review.model.js";
 import { asyncHandler } from "../utils/trycatch.js";
 import { APIError } from "../utils/apiError.js";
 import { sendEmail } from "../utils/sendEmail.js";
@@ -9,7 +9,6 @@ import { sendEmail } from "../utils/sendEmail.js";
 const createOrderController = asyncHandler(async (req, res) => {
   const {
     cartsIds,
-    addressId,
     shippingAddress,
     itemsPrice,
     shippingPrice,
@@ -21,8 +20,8 @@ const createOrderController = asyncHandler(async (req, res) => {
     throw new APIError("Please buy some products to create your order.", 404);
   }
 
-  if (!addressId && !shippingAddress) {
-    throw new APIError("Please select shipping address.");
+  if (!shippingAddress) {
+    throw new APIError("Please enter shipping address.");
   }
 
   const order = await Order.create({
@@ -33,57 +32,38 @@ const createOrderController = asyncHandler(async (req, res) => {
     user: req.user._id,
   });
 
-  const userCarts = await Cart.find({ user: req.user._id });
-
-  const selectedCarts = userCarts.filter((c) =>
-    cartsIds.includes(c._id.toString())
-  );
+  const userCarts = await Cart.find({
+    _id: { $in: cartsIds },
+    user: req.user._id,
+  });
 
   let productsIds = [];
   await Promise.all(
-    selectedCarts.map((c) => {
+    userCarts.map((c) => {
       order.items.push({
         product: c.item.product,
         name: c.item.name,
         price: c.item.price,
         quantity: c.item.quantity,
         image: c.item.image,
+        color: c.item.color,
+        size: c.item.size,
       });
       productsIds.push({
         pId: c.item.product.toString(),
         sold: Number(c.item.quantity),
       });
-    })
+    }),
   );
 
-  if (addressId) {
-    const user = await User.findById(req.user._id);
-    const userAddress = user?.addresses?.find(
-      (a) => a._id.toString() === addressId
-    );
-
-    if (!userAddress) {
-      throw new APIError("Billing address not found.", 404);
-    }
-
-    order.shippingAddress.address = userAddress.address;
-    order.shippingAddress.phone = userAddress.phone;
-    order.shippingAddress.username = userAddress.name;
-    order.shippingAddress.city = userAddress.city;
-    order.shippingAddress.region = userAddress.region;
-    order.shippingAddress.district = userAddress.district;
-    order.shippingAddress.landmark = userAddress.landmark;
-    order.shippingAddress.shipTo = userAddress.shipTo;
-  } else if (shippingAddress) {
-    order.shippingAddress.address = shippingAddress?.address;
-    order.shippingAddress.phone = shippingAddress?.phone;
-    order.shippingAddress.username = shippingAddress?.username;
-    order.shippingAddress.city = shippingAddress?.city;
-    order.shippingAddress.region = shippingAddress?.region;
-    order.shippingAddress.district = shippingAddress?.district;
-    order.shippingAddress.landmark = shippingAddress?.landmark;
-    order.shippingAddress.shipTo = shippingAddress?.shipTo;
-  }
+  order.shippingAddress.address = shippingAddress?.address;
+  order.shippingAddress.phone = shippingAddress?.phone;
+  order.shippingAddress.username = shippingAddress?.name;
+  order.shippingAddress.city = shippingAddress?.city;
+  order.shippingAddress.region = shippingAddress?.region;
+  order.shippingAddress.district = shippingAddress?.district;
+  order.shippingAddress.landmark = shippingAddress?.landmark;
+  order.shippingAddress.shipTo = shippingAddress?.shipTo;
 
   order.orderId = order?._id.toString().toUpperCase();
 
@@ -95,7 +75,7 @@ const createOrderController = asyncHandler(async (req, res) => {
       product.sold += p.sold;
 
       await product.save();
-    })
+    }),
   );
 
   return res.status(200).json({
@@ -135,7 +115,7 @@ const createDirectOrderController = asyncHandler(async (req, res) => {
 
   order.shippingAddress.address = shippingAddress?.address;
   order.shippingAddress.phone = shippingAddress?.phone;
-  order.shippingAddress.username = shippingAddress?.username;
+  order.shippingAddress.username = shippingAddress?.name;
   order.shippingAddress.city = shippingAddress?.city;
   order.shippingAddress.region = shippingAddress?.region;
   order.shippingAddress.district = shippingAddress?.district;
@@ -154,30 +134,33 @@ const createDirectOrderController = asyncHandler(async (req, res) => {
   });
 
   order.orderId = order._id.toString().toUpperCase();
+  product.sold = product.sold + quantity;
 
   await order.save();
+  await product.save();
 
-  await sendEmail({
-    to: order.shippingAddress?.email,
-    subject: ` Order Confirmation - ${order.orderId} `,
-    html: `<h1> Thank you for your order! </h1>
-    <p> Your order with Order ID: <strong> ${order.orderId} </strong> has been successfully placed. We will notify you once it is shipped. </p>
-    <h3> Shipping Address: </h3>
-    <p> ${order.shippingAddress?.username} <br/>
-    ${order.shippingAddress?.address} <br/>
-    ${order.shippingAddress?.city}, ${order.shippingAddress?.region} <br/>
-    ${order.shippingAddress?.district} <br/>
-    Phone: ${order.shippingAddress?.phone} <br/>
-    </p>
-    <h3> Order Details: </h3>
-    <p> Product Name: ${order.items[0].name} <br/>
-    Quantity: ${order.items[0].quantity} <br/>
-    Price: $${order.items[0].price} <br/>
-    Total Price: $${order.totalPrice} <br/>
-    </p>
-    <p> We appreciate your business! </p>
-    `,
-  });
+  // await sendEmail({
+  //   to: order.shippingAddress?.email,
+  //   subject: ` Order Confirmation - ${order.orderId} `,
+  //   html: `<h1> Thank you for your order! </h1>
+  //   <p> Your order with Order ID: <strong> ${order.orderId} </strong> has been successfully placed. We will notify you once it is shipped. </p>
+  //   <h3> Shipping Address: </h3>
+  //   <p> ${order.shippingAddress?.username} <br/>
+  //   ${order.shippingAddress?.address} <br/>
+  //   ${order.shippingAddress?.city}, ${order.shippingAddress?.region} <br/>
+  //   ${order.shippingAddress?.district} <br/>
+  //   Phone: ${order.shippingAddress?.phone} <br/>
+  //   </p>
+  //   <h3> Order Details: </h3>
+  //   <p> Product Name: ${order.items[0].name} <br/>
+  //   Quantity: ${order.items[0].quantity} <br/>
+  //   Price: $${order.items[0].price} <br/>
+  //   Total Price: $${order.totalPrice} <br/>
+  //   </p>
+  //   <h4> Please select payment method to deliver your order.</h4>
+  //   <p> We appreciate your business! </p>
+  //   `,
+  // });
 
   return res.status(200).json({
     success: true,
@@ -187,9 +170,9 @@ const createDirectOrderController = asyncHandler(async (req, res) => {
 });
 
 const ordersController = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ user: req.user._id }).select(
-    "-paymentResult"
-  );
+  const orders = await Order.find({ user: req.user._id })
+    .sort({ createdAt: -1 })
+    .select("-paymentResult");
 
   return res.status(200).json({
     success: true,
@@ -207,16 +190,35 @@ const singleOrderController = asyncHandler(async (req, res) => {
 
   const order = await Order.findOne({
     $and: [{ user: req.user._id }, { orderId: id }],
-  }).select("-paymentResult");
+  });
 
   if (!order) {
     throw new APIError("Order not found.", 404);
   }
 
+  const reviews = await Review.find({
+    userId: req.user?._id,
+    orderId: order._id,
+  });
+
+  const reviewedProductsIds = reviews.map((r) => r.productId.toString());
+
+  // Add isReviewed flag per item
+  const orderItems = order.items.map((item) => ({
+    ...item.toObject(), // ensures clean object
+    isReviewed: reviewedProductsIds.includes(item.product.toString()),
+  }));
+
+  // Prepare final response object
+  const orderData = {
+    ...order.toObject(),
+    items: orderItems,
+  };
+
   return res.status(200).json({
     success: true,
     message: "Order found.",
-    data: order,
+    data: orderData,
   });
 });
 
@@ -254,11 +256,12 @@ const updateOrderPaymentController = asyncHandler(async (req, res) => {
   if (paymentMethod !== "cod") {
     throw new APIError(
       "Please select payment method Cash on Delivery, Other payment methods are coming soon.",
-      404
+      404,
     );
   }
 
   const order = await Order.findOne({ orderId: id, user: req.user._id });
+  // const order = await Order.findOne({ orderId: id });
 
   if (paymentMethod === "cod") {
     order.paymentMethod = paymentMethod;
@@ -338,16 +341,11 @@ const updateOrderStatusAdminController = asyncHandler(async (req, res) => {
     order.orderStatus = "shipped";
   } else if (orderStatus === "delivered" && order.orderStatus === "shipped") {
     if (order.paymentMethod === "cod") {
-      order.isDelivered = true;
-      order.isPaid = true;
       order.paidAt = new Date().toLocaleString();
-      order.deliveredAt = new Date().toLocaleString();
-      order.orderStatus = "delivered";
-    } else {
-      order.isDelivered = true;
-      order.deliveredAt = new Date().toLocaleString();
-      order.orderStatus = "delivered";
+      order.paymentStatus = "paid";
     }
+    order.deliveredAt = new Date().toLocaleString();
+    order.orderStatus = "delivered";
   } else {
     throw new APIError("You cannot update this order status.", 400);
   }

@@ -13,7 +13,10 @@ import {
   updateUserProfileController,
   userController,
   createUserInfoController,
-  setDefaultShippingController,
+  createWishlistController,
+  deleteWishlistController,
+  getWishlistController,
+  // setDefaultShippingController,
   deleteUserInfoController,
   forgotPasswordController,
   resetPasswordController,
@@ -36,72 +39,77 @@ const AuthRouter = express.Router();
 
 AuthRouter.route("/signup").post(
   validateWithZod(signUpSchema),
-  signUpController
+  signUpController,
 );
 AuthRouter.route("/signin").post(
   validateWithZod(signInSchema),
-  signInController
+  signInController,
 );
 AuthRouter.route("/logout").get(verifyUser, logoutController);
 AuthRouter.route("/user").get(verifyUser, userController);
 AuthRouter.route("/update-profile").patch(
   verifyUser,
   upload.single("image"),
-  updateUserProfileController
+  updateUserProfileController,
 );
 AuthRouter.route("/update-password").patch(
   verifyUser,
-  updatePasswordController
+  updatePasswordController,
 );
 AuthRouter.route("/create-user-info").post(
   verifyUser,
   validateWithZod(userInfoSchema),
-  createUserInfoController
+  createUserInfoController,
 );
 AuthRouter.route("/update-info/:id").patch(
   verifyUser,
-  updateUserInfoController
+  updateUserInfoController,
 );
-AuthRouter.route("/set-default-shipping/:addressId").patch(
-  verifyUser,
-  setDefaultShippingController
-);
+// AuthRouter.route("/set-default-shipping/:addressId").patch(
+//   verifyUser,
+//   setDefaultShippingController
+// );
 AuthRouter.route("/delete-info/:id").delete(
   verifyUser,
-  deleteUserInfoController
+  deleteUserInfoController,
 );
 AuthRouter.route("/forget-password").post(forgotPasswordController);
 AuthRouter.route("/reset-password/:token").post(resetPasswordController);
-
 AuthRouter.route("/send-otp").post(sendOTPController);
 AuthRouter.route("/verify-otp").post(verifyOTPController);
+AuthRouter.route("/create-wishlist").post(verifyUser, createWishlistController);
+AuthRouter.route("/wishlists").get(verifyUser, getWishlistController);
+AuthRouter.route("/delete-wishlist/:productId").delete(
+  verifyUser,
+  deleteWishlistController,
+);
 
 // Admin routes................................
 AuthRouter.route("/admin/users").get(
   verifyUser,
   authorizeUser(["admin"]),
-  allUsersAdminController
+  allUsersAdminController,
 );
 AuthRouter.route("/admin/user/:id").get(
   verifyUser,
   authorizeUser(["admin"]),
-  singleUserAdminController
+  singleUserAdminController,
 );
 AuthRouter.route("/admin/delete-user/:id").delete(
   verifyUser,
   authorizeUser(["admin"]),
-  deleteUserAdminController
+  deleteUserAdminController,
 );
 AuthRouter.route("/admin/update-user-profile/:id").patch(
   verifyUser,
   authorizeUser(["admin"]),
   upload.single("image"),
-  updateUserAdminController
+  updateUserAdminController,
 );
 AuthRouter.route("/admin/update-user-info/:userId").patch(
   verifyUser,
   authorizeUser(["admin"]),
-  updateUserInfoAdminController
+  updateUserInfoAdminController,
 );
 
 export { AuthRouter };

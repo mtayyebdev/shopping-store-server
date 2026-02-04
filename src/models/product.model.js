@@ -1,25 +1,5 @@
 import mongoose from "mongoose";
 
-const reviewSchema = new mongoose.Schema(
-  {
-    username: String,
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
-    message: String,
-    images: Array, // [{ url: String, publicId: String }]
-    avatar: String,
-    rating: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 5,
-    },
-  },
-  { timestamps: true }
-);
-
 const productSchema = new mongoose.Schema(
   {
     name: {
@@ -80,7 +60,6 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    reviews: [reviewSchema],
     sold: {
       type: Number,
       default: 0,
@@ -89,7 +68,7 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    returned: String,
+    returned: Number,
     shortDesc: String,
     longDesc: String,
     sku: String,
@@ -102,7 +81,7 @@ const productSchema = new mongoose.Schema(
       default: false,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 const Product = mongoose.model("Product", productSchema);
 export default Product;

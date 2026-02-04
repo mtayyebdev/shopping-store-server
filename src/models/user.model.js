@@ -18,7 +18,9 @@ const userInfo = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true,
+      sparse: true,
+      unique: true,
+      trim: true,
     },
     name: {
       type: String,
@@ -61,7 +63,7 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true,
+      sparse: true,
       unique: true,
       trim: true,
     },

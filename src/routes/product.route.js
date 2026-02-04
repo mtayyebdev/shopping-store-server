@@ -3,7 +3,7 @@ import {
   createProductAdminController,
   createProductReviewController,
   deleteProductAdminController,
-  deleteReviewController,
+  // deleteReviewController,
   featuredProductsController,
   newArrivalsProductsController,
   popularProductsController,
@@ -32,10 +32,10 @@ ProductRouter.route("/create-review/:productId").post(
   upload.array("images",4),
   createProductReviewController
 );
-ProductRouter.route("/delete-review/:productId/:reviewId").delete(
-  verifyUser,
-  deleteReviewController
-);
+// ProductRouter.route("/delete-review/:productId/:reviewId").delete(
+//   verifyUser,
+//   deleteReviewController
+// );
 ProductRouter.route("/featured").get(featuredProductsController);
 ProductRouter.route("/new-arrivals").get(newArrivalsProductsController);
 ProductRouter.route("/popular").get(popularProductsController);
@@ -43,7 +43,7 @@ ProductRouter.route("/products").get(productsController);
 ProductRouter.route("/related/:productId").get(relatedProductsController);
 ProductRouter.route("/product/:slug").get(singleProductController);
 ProductRouter.route("/top-rated").get(topRatedProductsController);
-ProductRouter.route("/search").get(searchProductController);
+ProductRouter.route("/search").post(searchProductController);
 
 // admin routes...................
 ProductRouter.route("/admin/create").post(

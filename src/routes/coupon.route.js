@@ -16,7 +16,7 @@ import { validateWithZod } from "../middlewares/zodValidation.middleware.js";
 
 const CouponRouter = express.Router();
 
-CouponRouter.route("/apply").get(verifyUser, useCouponController);
+CouponRouter.route("/apply").post(verifyUser, useCouponController);
 
 // admin routes.............
 CouponRouter.route("/admin/create").post(

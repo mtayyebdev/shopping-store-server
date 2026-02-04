@@ -10,6 +10,7 @@ import {
   DeleteImageFromCloudinary,
 } from "../utils/uploadFile.js";
 import { generateOTP } from "../utils/generateOTP.js";
+import Wishlist from "../models/wishlist.model.js";
 
 const signUpController = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
@@ -17,17 +18,14 @@ const signUpController = asyncHandler(async (req, res) => {
   const emailExist = await User.findOne({ email });
 
   if (emailExist) {
-    throw new APIError("User already exist", 400);
+    throw new APIError("This email is already registered. Please login.", 400);
   }
 
-  await User.create(
-    {
-      name,
-      email,
-      password,
-    },
-    { validateBeforeSave: true }
-  );
+  await User.create({
+    name,
+    email,
+    password,
+  });
 
   return res.status(200).json({
     success: true,
@@ -59,14 +57,14 @@ const signInController = asyncHandler(async (req, res) => {
     process.env.JWT_TOKEN,
     {
       expiresIn: process.env.JWT_EXPIREIN,
-    }
+    },
   );
 
   await res.cookie("userToken", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" ? true : false,
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === "production" ? "lax" : "none",
   });
 
   return res.status(200).json({
@@ -87,7 +85,7 @@ const logoutController = asyncHandler(async (req, res) => {
 });
 
 const userController = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).select("-password");
+  const user = await User.findById(req.user?._id).select("-password");
 
   if (!user) {
     throw new APIError("Profile data not found.", 400);
@@ -172,7 +170,7 @@ const createUserInfoController = asyncHandler(async (req, res) => {
 
   if (defaultShipping == true && user?.addresses?.length > 0) {
     const userAddress = user.addresses.find((a) => a.defaultShipping === true);
-    userAddress.defaultShipping = false;
+    if (userAddress) userAddress.defaultShipping = false;
   }
 
   user.addresses.push(newAddress);
@@ -185,13 +183,22 @@ const createUserInfoController = asyncHandler(async (req, res) => {
 });
 
 const updateUserInfoController = asyncHandler(async (req, res) => {
-  const { region, city, district, phone, name, landmark, address, shipTo } =
-    req.body;
+  const {
+    region,
+    city,
+    district,
+    phone,
+    name,
+    landmark,
+    address,
+    shipTo,
+    defaultShipping,
+  } = req.body;
   const { id } = req.params;
 
   const user = await User.findById(req.user._id);
   const userAddress = user.addresses?.find(
-    (info) => info._id.toString() === id
+    (info) => info._id.toString() === id,
   );
 
   if (!userAddress) {
@@ -230,6 +237,13 @@ const updateUserInfoController = asyncHandler(async (req, res) => {
     userAddress.shipTo = shipTo;
   }
 
+  if (defaultShipping) {
+    user.addresses.forEach((info) => {
+      info.defaultShipping = false;
+    });
+    userAddress.defaultShipping = defaultShipping;
+  }
+
   await userAddress.save();
   await user.save();
 
@@ -239,37 +253,37 @@ const updateUserInfoController = asyncHandler(async (req, res) => {
   });
 });
 
-const setDefaultShippingController = asyncHandler(async (req, res) => {
-  const { addressId } = req.params;
+// const setDefaultShippingController = asyncHandler(async (req, res) => {
+//   const { addressId } = req.params;
 
-  const user = await User.findById(req.user._id);
-  const userAddress = user.addresses?.find(
-    (info) => info._id.toString() === addressId
-  );
+//   const user = await User.findById(req.user._id);
+//   const userAddress = user.addresses?.find(
+//     (info) => info._id.toString() === addressId,
+//   );
 
-  if (!userAddress) {
-    throw new APIError("User address not found.", 404);
-  }
+//   if (!userAddress) {
+//     throw new APIError("User address not found.", 404);
+//   }
 
-  user.addresses.forEach((info) => {
-    info.defaultShipping = false;
-  });
+//   user.addresses.forEach((info) => {
+//     info.defaultShipping = false;
+//   });
 
-  userAddress.defaultShipping = true;
-  await user.save();
+//   userAddress.defaultShipping = true;
+//   await user.save();
 
-  return res.status(200).json({
-    success: true,
-    message: "Default shipping address set successfully.",
-  });
-});
+//   return res.status(200).json({
+//     success: true,
+//     message: "Default shipping address set successfully.",
+//   });
+// });
 
 const deleteUserInfoController = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const user = await User.findById(req.user?._id);
 
   const userAddresses = user.addresses?.filter(
-    (info) => info._id.toString() !== id
+    (info) => info._id.toString() !== id,
   );
 
   user.addresses = userAddresses;
@@ -441,7 +455,7 @@ const verifyOTPController = asyncHandler(async (req, res) => {
     await Otp.deleteOne({ email });
     throw new APIError("OTP has expired.", 400);
   }
-  
+
   if (otpCode !== otpExist?.code) {
     throw new APIError("Invalid OTP code.", 400);
   }
@@ -452,6 +466,61 @@ const verifyOTPController = asyncHandler(async (req, res) => {
     success: true,
     message: "Email verified successfully",
     verified: true,
+  });
+});
+
+const createWishlistController = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+  const { productId } = req.body;
+
+  if (!productId || !userId) {
+    throw new APIError("Product ID and User ID is required.", 400);
+  }
+
+  const wishlistExist = await Wishlist.findOne({ userId, productId });
+
+  if (wishlistExist) {
+    throw new APIError("Product already in wishlist.", 400);
+  }
+
+  await Wishlist.create({ userId, productId });
+
+  return res.status(200).json({
+    success: true,
+    message: "Product added to wishlist successfully.",
+  });
+});
+
+const deleteWishlistController = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { productId } = req.params;
+
+  if (!productId || !userId) {
+    throw new APIError("Product ID and User ID is required.", 400);
+  }
+
+  const wishlistExist = await Wishlist.findOne({ userId, productId });
+
+  if (!wishlistExist) {
+    throw new APIError("Product not found in wishlist.", 400);
+  }
+
+  await wishlistExist.deleteOne();
+
+  return res.status(200).json({
+    success: true,
+    message: "Product removed from wishlist successfully.",
+  });
+});
+
+const getWishlistController = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const wishlists = await Wishlist.find({ userId }).populate("productId");
+
+  return res.status(200).json({
+    success: true,
+    message: "Wishlist retrieved successfully.",
+    data: wishlists,
   });
 });
 
@@ -624,7 +693,10 @@ export {
   updateUserProfileController,
   userController,
   createUserInfoController,
-  setDefaultShippingController,
+  createWishlistController,
+  deleteWishlistController,
+  getWishlistController,
+  // setDefaultShippingController,
   deleteUserInfoController,
   forgotPasswordController,
   resetPasswordController,

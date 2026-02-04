@@ -5,7 +5,7 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: {
       username: String,
       phone: String,
-      email:String,
+      email: String,
       address: String,
       city: String,
       region: String,
@@ -15,13 +15,24 @@ const orderSchema = new mongoose.Schema(
     },
     orderStatus: {
       type: String,
-      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      enum: [
+        "pending",
+        "confirmed",
+        "processing",
+        "shipped",
+        "out_for_delivery",
+        "delivered",
+        "cancelled",
+        "returned",
+        "refunded",
+      ],
       default: "pending",
     },
     orderId: {
       type: String,
       unique: true,
       uppercase: true,
+      index: true,
     },
     items: [
       {
@@ -34,8 +45,12 @@ const orderSchema = new mongoose.Schema(
         price: Number,
         quantity: Number,
         image: String,
-        color:String,
-        size:String
+        color: String,
+        size: String,
+        isReviewed: {
+          type: Boolean,
+          default: false,
+        },
       },
       { _id: false },
     ],
@@ -46,8 +61,8 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["strip", "paypal", "cod", "jazzcash", "easypaisa"],
-      required:false,
+      enum: ["stripe", "paypal", "cod", "jazzcash", "easypaisa"],
+      required: false,
     },
     paymentResult: {
       id: String,
@@ -55,22 +70,19 @@ const orderSchema = new mongoose.Schema(
       update_time: String,
       email_address: String,
     },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed", "refunded"],
+      default: "pending",
+    },
     itemsPrice: Number,
     shippingPrice: Number,
     taxPrice: Number,
     totalPrice: Number,
-    isPaid: {
-      type: Boolean,
-      default: false,
-    },
     paidAt: Date,
-    isDelivered: {
-      type: Boolean,
-      default: false,
-    },
     deliveredAt: Date,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 const Order = mongoose.model("Order", orderSchema);
 export default Order;

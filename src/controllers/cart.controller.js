@@ -16,7 +16,7 @@ const createCartController = asyncHandler(async (req, res) => {
   }
 
   const product = await Product.findById(productId).select(
-    "-images -reviews -shortDesc -longDesc -specifications -sku -sold -numReviews -tags -ratings -stock -slug"
+    "-images -reviews -shortDesc -longDesc -specifications -sku -sold -numReviews -tags -ratings -stock",
   );
 
   if (!product) {
@@ -26,6 +26,7 @@ const createCartController = asyncHandler(async (req, res) => {
   const totalPrice = product.price * quantity;
   const item = {
     name: product.name,
+    slug: product.slug,
     price: product.price,
     oldPrice: product.oldPrice,
     quantity,
@@ -41,6 +42,7 @@ const createCartController = asyncHandler(async (req, res) => {
     user: req.user._id,
     totalPrice,
     item,
+    selected: false,
   });
 
   if (!cart) {
@@ -78,16 +80,22 @@ const deleteCartController = asyncHandler(async (req, res) => {
 
 const deleteManyCartsController = asyncHandler(async (req, res) => {
   const { cartsIds } = req.body;
-
-  if (!cartsIds || cartsIds.length === 0) {
+  
+  if (!Array.isArray(cartsIds) || cartsIds.length === 0) {
     throw new APIError("Please select carts to delete.");
   }
 
-  await Promise.all(cartsIds.map(async (c) => await Cart.findByIdAndDelete(c)));
+  const result = await Cart.deleteMany({
+    _id: { $in: cartsIds },
+  });
+
+  if (result.deletedCount === 0) {
+    throw new APIError("No carts found to delete.");
+  }
 
   return res.status(200).json({
     success: true,
-    message: "Carts deleted successfully.",
+    message: `${result.deletedCount} carts deleted successfully.`,
   });
 });
 
@@ -131,10 +139,34 @@ const cartsController = asyncHandler(async (req, res) => {
   });
 });
 
+const toggleCartSelectionController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { selected } = req.body;
+
+  if (!id) {
+    throw new APIError("Cart Id not found.", 404);
+  }
+
+  const cart = await Cart.findById(id);
+
+  if (!cart) {
+    throw new APIError("Cart not found.", 404);
+  }
+
+  cart.selected = selected;
+  await cart.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Cart selection updated successfully.",
+  });
+});
+
 export {
   cartsController,
   deleteCartController,
   deleteManyCartsController,
   updateCartController,
   createCartController,
+  toggleCartSelectionController,
 };

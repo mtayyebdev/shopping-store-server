@@ -12,11 +12,12 @@ import { ProductRouter } from "./src/routes/product.route.js";
 import { CouponRouter } from "./src/routes/coupon.route.js";
 import { CartRouter } from "./src/routes/cart.route.js";
 import { OrderRouter } from "./src/routes/order.route.js";
+import { ReturnRouter } from "./src/routes/return.route.js";
 
 const app = express();
 
 const options = {
-  origin: "*",
+  origin: [process.env.CLIENT_URL],
   credentials: true,
   methods: ["GET", "POST", "PATCH", "DELETE"],
 };
@@ -31,6 +32,7 @@ app.use("/api/product", ProductRouter);
 app.use("/api/coupon", CouponRouter);
 app.use("/api/cart", CartRouter);
 app.use("/api/order", OrderRouter);
+app.use("/api/return", ReturnRouter);
 
 app.use(errorHandler);
 

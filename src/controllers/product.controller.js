@@ -8,6 +8,8 @@ import {
   UploadToCloudinary,
 } from "../utils/uploadFile.js";
 import Category from "../models/category.model.js";
+import Review from "../models/review.model.js";
+import Order from "../models/order.model.js";
 
 const productsController = asyncHandler(async (req, res) => {
   const products = await Product.aggregate([
@@ -49,7 +51,10 @@ const singleProductController = asyncHandler(async (req, res) => {
     throw new APIError("Product not found.", 400);
   }
 
-  const category = await Category.findById(product.category);
+  const category = await Category.findById(product.category).select(
+    "name slug",
+  );
+  const reviews = await Review.find({ productId: product._id });
 
   return res.status(200).json({
     success: true,
@@ -57,7 +62,7 @@ const singleProductController = asyncHandler(async (req, res) => {
     data: {
       product,
       category,
-      reviews: product.reviews,
+      reviews,
     },
   });
 });
@@ -105,6 +110,49 @@ const searchProductController = asyncHandler(async (req, res) => {
 
   if (sortBy === "LtoH") sortStage.price = 1;
   if (sortBy === "HtoL") sortStage.price = -1;
+
+  const countPipeline = [
+    {
+      $lookup: {
+        from: "categories",
+        localField: "category",
+        foreignField: "_id",
+        as: "categories_info",
+        pipeline: [
+          {
+            $project: { name: 1, slug: 1 },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: "$categories_info",
+    },
+    {
+      $match: {
+        $or: [
+          {
+            name: {
+              $regex: String(s),
+              $options: "i",
+            },
+          },
+          {
+            "categories_info.slug": {
+              $regex: String(c),
+              $options: "i",
+            },
+          },
+        ],
+      },
+    },
+    {
+      $match: matchStage,
+    },
+    {
+      $count: "total",
+    },
+  ];
 
   const pipeline = [
     {
@@ -169,88 +217,21 @@ const searchProductController = asyncHandler(async (req, res) => {
         category_info: 1,
         sold: 1,
         createdAt: 1,
-        ratings: 1,
         numReviews: 1,
       },
-    }
+    },
   );
 
+  const [countResult] = await Product.aggregate(countPipeline);
   const products = await Product.aggregate(pipeline);
+  const totalProducts = countResult?.total || 0;
+  const totalPages = Math.ceil(totalProducts / limit);
 
   return res.status(200).json({
     success: true,
     message: "Products found.",
     data: products,
-  });
-});
-
-const createProductReviewController = asyncHandler(async (req, res) => {
-  const { productId } = req.params;
-  const { message, rating } = req.body;
-  const files = req.files || [];
-
-  if (!productId) {
-    throw new APIError("Product ID not found.", 404);
-  }
-
-  if (!message || !rating) {
-    throw new APIError("Product message and Ratings is required.", 404);
-  }
-
-  const product = await Product.findById(productId);
-  const user = await User.findById(req.user._id);
-
-  if (!product) {
-    throw new APIError("Invalid Product ID.", 404);
-  }
-
-  const alreadyReviewed = product.reviews.find(
-    (r) => r.user.toString() === user._id.toString()
-  );
-
-  if (alreadyReviewed) {
-    throw new APIError("You already reviewed this product.", 400);
-  }
-
-  const review = {
-    username: user.name,
-    avatar: user.avatar,
-    message,
-    rating: Number(rating),
-    user: user._id,
-    images: [],
-  };
-
-  if (files?.length !== 0) {
-    if (files.length > 4) {
-      throw new APIError("You can upload maximum 4 images for review.", 400);
-    }
-    await Promise.all(
-      files.map(async (f) => {
-        const uploadedImage = await UploadToCloudinary(f?.path, "reviews");
-        review.images.push({
-          url: uploadedImage.secure_url,
-          publicId: uploadedImage.public_id,
-        });
-      })
-    );
-  }
-
-  product.reviews.push(review);
-
-  product.numReviews = product.reviews.length;
-
-  let sumOfRatings = 0;
-  product.reviews.forEach((r) => (sumOfRatings += r.rating));
-
-  product.ratings =
-    product.numReviews === 0 ? 0 : sumOfRatings / product.numReviews;
-
-  await product.save();
-
-  return res.status(200).json({
-    success: true,
-    message: "Product review added successfully.",
+    totalPages,
   });
 });
 
@@ -259,7 +240,7 @@ const topRatedProductsController = asyncHandler(async (req, res) => {
     .sort({ ratings: -1 })
     .limit(5)
     .select(
-      "name slug price discountPrice image ratings sold numReviews discount"
+      "name slug price discountPrice image ratings sold numReviews discount",
     );
   return res.status(200).json({
     success: true,
@@ -272,7 +253,7 @@ const featuredProductsController = asyncHandler(async (req, res) => {
   const products = await Product.find({ isFeatured: true })
     .sort({ createdAt: -1 })
     .select(
-      "name slug price discountPrice image ratings sold numReviews discount"
+      "name slug price discountPrice image ratings sold numReviews discount",
     );
   return res.status(200).json({
     success: true,
@@ -286,7 +267,7 @@ const newArrivalsProductsController = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .limit(10)
     .select(
-      "name slug price discountPrice image ratings sold numReviews discount"
+      "name slug price discountPrice image ratings sold numReviews discount",
     );
 
   return res.status(200).json({
@@ -301,7 +282,7 @@ const popularProductsController = asyncHandler(async (req, res) => {
     .sort({ sold: -1 })
     .limit(10)
     .select(
-      "name slug price discountPrice image ratings sold numReviews discount"
+      "name slug price discountPrice image ratings sold numReviews discount",
     );
   return res.status(200).json({
     success: true,
@@ -327,7 +308,7 @@ const relatedProductsController = asyncHandler(async (req, res) => {
   })
     .limit(10)
     .select(
-      "name slug price discountPrice image ratings sold numReviews discount"
+      "name slug price discountPrice image ratings sold numReviews discount",
     );
 
   return res.status(200).json({
@@ -337,52 +318,97 @@ const relatedProductsController = asyncHandler(async (req, res) => {
   });
 });
 
-const deleteReviewController = asyncHandler(async (req, res) => {
-  const { productId, reviewId } = req.params;
-  if (!productId || !reviewId) {
-    throw new APIError("Product ID and Review ID are required.", 404);
+// creating product review when user purchased the product....
+const createProductReviewController = asyncHandler(async (req, res) => {
+  const { productId } = req.params;
+  const { message, rating, orderId } = req.body;
+  const files = req.files || [];
+
+  if (!productId || !orderId) {
+    throw new APIError("Product Id and Order Id is required.", 404);
   }
+
+  if (!message || !rating) {
+    throw new APIError("Product message and Ratings is required.", 404);
+  }
+
   const product = await Product.findById(productId);
 
-  if (!product) {
-    throw new APIError("Invalid Product ID.", 404);
-  }
+  const user = await User.findById(req.user?._id);
 
-  const review = product.reviews.find(
-    (r) => r._id.toString() === reviewId.toString()
-  );
-
-  if (!review) {
-    throw new APIError("Review not found.", 404);
-  }
-
-  if (review.user.toString() !== req.user._id.toString()) {
-    throw new APIError("You are not authorized to delete this review.", 403);
-  }
-  const reviewImgsIds = [];
-  review.images.forEach((i) => {
-    reviewImgsIds.push(i.publicId);
+  const isValidOrder = await Order.findOne({
+    _id: orderId,
+    user: user._id,
+    "items.product": productId,
+    orderStatus: "delivered",
   });
 
-  product.reviews = product.reviews.filter(
-    (r) => r._id.toString() !== reviewId.toString()
-  );
+  if (!isValidOrder) {
+    throw new APIError(
+      "You can not review this product before purchasing it.",
+      400,
+    );
+  }
 
-  await Promise.all(
-    reviewImgsIds.map(async (imgs) => await DeleteImageFromCloudinary(imgs))
-  );
+  const alreadyReviewed = await Review.findOne({
+    userId: user._id,
+    orderId,
+    productId,
+  });
 
-  product.numReviews = product.reviews.length;
+  if (alreadyReviewed) {
+    throw new APIError("Product already reviewed", 400);
+  }
+
+  const review = {
+    username: user.name,
+    avatar: user.avatar,
+    message,
+    rating: Number(rating),
+    userId: user._id,
+    productId: product._id,
+    orderId,
+    images: [],
+  };
+
+  if (files?.length !== 0) {
+    if (files.length > 4) {
+      throw new APIError("You can upload maximum 4 images for review.", 400);
+    }
+    await Promise.all(
+      files.map(async (f) => {
+        const uploadedImage = await UploadToCloudinary(f?.path, "reviews");
+        review.images.push({
+          url: uploadedImage.secure_url,
+          publicId: uploadedImage.public_id,
+        });
+      }),
+    );
+  }
+
+  await Review.create(review);
+
+  product.numReviews = product.numReviews + 1;
+
   let sumOfRatings = 0;
-  product.reviews.forEach((r) => (sumOfRatings += r.rating));
+  const reviews = await Review.find({ productId: product._id });
+  reviews.forEach((r) => {
+    sumOfRatings += r.rating;
+  });
+
   product.ratings =
     product.numReviews === 0 ? 0 : sumOfRatings / product.numReviews;
 
   await product.save();
 
+  const reviewedItem = isValidOrder.items.find((i) => i.product == productId);
+  reviewedItem.isReviewed = true;
+
+  await isValidOrder.save();
+
   return res.status(200).json({
     success: true,
-    message: "Review deleted successfully.",
+    message: "Product review added successfully.",
   });
 });
 
@@ -431,7 +457,7 @@ const createProductAdminController = asyncHandler(async (req, res) => {
         url: uploadedFile.secure_url,
         publicId: uploadedFile.public_id,
       });
-    })
+    }),
   );
 
   if (images.length === 0) {
@@ -569,7 +595,7 @@ const updateProductAdminController = asyncHandler(async (req, res) => {
     const discount = Math.round(
       (((oldPrice || product.oldPrice) - (price || product.price)) /
         (oldPrice || product.oldPrice)) *
-        100
+        100,
     );
     product.discount = discount;
   }
@@ -597,19 +623,19 @@ const updateProductAdminController = asyncHandler(async (req, res) => {
           url: uploadedFile.secure_url,
           publicId: uploadedFile.public_id,
         });
-      })
+      }),
     );
   }
 
   if (imgsIdsToDelete?.length > 0) {
     const newImages = product.images?.filter(
-      (i) => !imgsIdsToDelete.includes(i.publicId)
+      (i) => !imgsIdsToDelete.includes(i.publicId),
     );
 
     await Promise.all(
       imgsIdsToDelete.map(async (pId) => {
         await DeleteImageFromCloudinary(pId);
-      })
+      }),
     );
 
     product.images = newImages;
@@ -669,7 +695,7 @@ const deleteProductAdminController = asyncHandler(async (req, res) => {
       await Promise.all(
         productsIds.map(async (pId) => {
           await DeleteImageFromCloudinary(pId);
-        })
+        }),
       );
     })
     .catch((err) => {
@@ -692,7 +718,7 @@ export {
   newArrivalsProductsController,
   popularProductsController,
   relatedProductsController,
-  deleteReviewController,
+
   // admin controllers
   createProductAdminController,
   productsAdminController,

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const cartItemSchema = new mongoose.Schema(
   {
     name: String,
+    slug: String,
     price: Number,
     oldPrice: Number,
     quantity: {
@@ -24,7 +25,7 @@ const cartItemSchema = new mongoose.Schema(
       default: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 const cartSchema = new mongoose.Schema(
   {
@@ -38,8 +39,12 @@ const cartSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    selected: {
+      type: Boolean,
+      default: false,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 const Cart = mongoose.model("Cart", cartSchema);
 export default Cart;

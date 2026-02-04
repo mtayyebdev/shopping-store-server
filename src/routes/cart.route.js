@@ -4,6 +4,7 @@ import {
   deleteCartController,
   deleteManyCartsController,
   updateCartController,
+  toggleCartSelectionController
 } from "../controllers/cart.controller.js";
 import { verifyUser } from "../middlewares/verifyUser.middleware.js";
 import express from "express";
@@ -15,5 +16,6 @@ CartRouter.route("/update/:id").patch(verifyUser, updateCartController);
 CartRouter.route("/delete/:id").delete(verifyUser, deleteCartController);
 CartRouter.route("/delete-many").delete(verifyUser, deleteManyCartsController);
 CartRouter.route("/carts").get(verifyUser, cartsController);
+CartRouter.route("/toggle-selection/:id").patch(verifyUser, toggleCartSelectionController);
 
 export { CartRouter };
