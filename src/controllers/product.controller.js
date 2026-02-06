@@ -70,40 +70,62 @@ const singleProductController = asyncHandler(async (req, res) => {
 const searchProductController = asyncHandler(async (req, res) => {
   const { s, c } = req.query;
   const {
-    minPrice = 0,
-    maxPrice = 10000000,
+    minPrice = 1,
+    maxPrice = 100000,
     ratings = 0,
-    color = [],
-    size = [],
-    brand,
+    allFilters = {},
     sortBy = "bestMatch",
     page = 1,
     limit = 10,
   } = req.body;
 
   const matchStage = {};
+  const orConditions = [];
 
-  if (minPrice) {
+  if (s) {
+    orConditions.push({
+      name: {
+        $regex: String(s),
+        $options: "i",
+      },
+    });
+  }
+
+  if (c) {
+    orConditions.push({
+      "category_info.slug": {
+        $regex: String(c),
+        $options: "i",
+      },
+    });
+  }
+
+  if (minPrice !== undefined) {
     matchStage.price = { ...matchStage.price, $gte: minPrice };
   }
-  if (maxPrice) {
+  if (maxPrice !== undefined) {
     matchStage.price = { ...matchStage.price, $lte: maxPrice };
   }
 
-  if (ratings) {
+  if (ratings > 0) {
     matchStage.ratings = { $gte: ratings };
   }
 
-  if (color.length > 0) {
-    matchStage.color = { $in: color };
-  }
+  if (allFilters && typeof allFilters === "object") {
+    Object.entries(allFilters).forEach(([key, values]) => {
+      if (values.length === 0) return;
 
-  if (size.length > 0) {
-    matchStage.size = { $in: size };
-  }
-
-  if (brand) {
-    matchStage.brand = brand;
+      if (["color", "size", "brand"].includes(key)) {
+        matchStage[key] = { $in: values };
+      } else {
+        matchStage.specifications = {
+          $elemMatch: {
+            lable: key,
+            content: { $in: values },
+          },
+        };
+      }
+    });
   }
 
   const sortStage = {};
@@ -117,7 +139,7 @@ const searchProductController = asyncHandler(async (req, res) => {
         from: "categories",
         localField: "category",
         foreignField: "_id",
-        as: "categories_info",
+        as: "category_info",
         pipeline: [
           {
             $project: { name: 1, slug: 1 },
@@ -126,25 +148,13 @@ const searchProductController = asyncHandler(async (req, res) => {
       },
     },
     {
-      $unwind: "$categories_info",
+      $unwind: {
+        path: "$category_info",
+        preserveNullAndEmptyArrays: true,
+      },
     },
     {
-      $match: {
-        $or: [
-          {
-            name: {
-              $regex: String(s),
-              $options: "i",
-            },
-          },
-          {
-            "categories_info.slug": {
-              $regex: String(c),
-              $options: "i",
-            },
-          },
-        ],
-      },
+      $match: orConditions.length > 0 ? { $or: orConditions } : {},
     },
     {
       $match: matchStage,
@@ -160,7 +170,7 @@ const searchProductController = asyncHandler(async (req, res) => {
         from: "categories",
         localField: "category",
         foreignField: "_id",
-        as: "categories_info",
+        as: "category_info",
         pipeline: [
           {
             $project: { name: 1, slug: 1 },
@@ -169,25 +179,13 @@ const searchProductController = asyncHandler(async (req, res) => {
       },
     },
     {
-      $unwind: "$categories_info",
+      $unwind: {
+        path: "$category_info",
+        preserveNullAndEmptyArrays: true,
+      },
     },
     {
-      $match: {
-        $or: [
-          {
-            name: {
-              $regex: String(s),
-              $options: "i",
-            },
-          },
-          {
-            "categories_info.slug": {
-              $regex: String(c),
-              $options: "i",
-            },
-          },
-        ],
-      },
+      $match: orConditions.length > 0 ? { $or: orConditions } : {},
     },
     {
       $match: matchStage,
@@ -227,11 +225,59 @@ const searchProductController = asyncHandler(async (req, res) => {
   const totalProducts = countResult?.total || 0;
   const totalPages = Math.ceil(totalProducts / limit);
 
+  const filters = await Product.aggregate([
+    {
+      $lookup: {
+        from: "categories",
+        localField: "category",
+        foreignField: "_id",
+        as: "category_info",
+        pipeline: [{ $project: { filters: 1, slug: 1 } }],
+      },
+    },
+    { $unwind: { path: "$category_info", preserveNullAndEmptyArrays: false } },
+
+    // IMPORTANT: apply category/search filter here
+    { $match: orConditions.length ? { $or: orConditions } : {} },
+
+    // apply price/size/rating filter
+    { $match: matchStage },
+
+    {
+      $unwind: {
+        path: "$category_info.filters",
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+    {
+      $group: {
+        _id: "$category_info.filters.name",
+        values: { $addToSet: "$category_info.filters.values" },
+        type: { $first: "$category_info.filters.type" },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        name: "$_id",
+        values: {
+          $reduce: {
+            input: "$values",
+            initialValue: [],
+            in: { $concatArrays: ["$$value", "$$this"] },
+          },
+        },
+        type: 1,
+      },
+    },
+  ]);
+
   return res.status(200).json({
     success: true,
     message: "Products found.",
     data: products,
     totalPages,
+    filters,
   });
 });
 

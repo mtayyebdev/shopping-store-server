@@ -20,8 +20,15 @@ const categorySchema = new mongoose.Schema(
       url: String,
       publicId: String,
     },
+    filters: [
+      {
+        name: String,
+        values: [String],
+        type: String, // checkbox, radio, select
+      },
+    ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 const Category = mongoose.model("Category", categorySchema);
 export default Category;

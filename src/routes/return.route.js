@@ -15,7 +15,7 @@ const ReturnRouter = Router();
 
 ReturnRouter.route("/create").post(
   verifyUser,
-  upload.array("Images", 5),
+  upload.array("images", 5),
   createReturnController,
 );
 ReturnRouter.route("/returns").get(verifyUser, getReturnsController);

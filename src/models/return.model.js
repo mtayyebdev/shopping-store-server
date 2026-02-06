@@ -25,14 +25,18 @@ const returnSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    productName: String,
     reason: {
       type: String,
       enum: [
         "damaged",
         "wrong_item",
-        "size_issue",
+        "wrong_size",
         "not_as_described",
         "other",
+        "change_mind",
+        "wrong_color",
+
       ],
       required: true,
     },
@@ -51,6 +55,7 @@ const returnSchema = new mongoose.Schema(
         "received",
         "refunded",
         "replaced",
+        "completed"
       ],
       default: "requested",
     },

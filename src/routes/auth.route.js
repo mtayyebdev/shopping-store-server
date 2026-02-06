@@ -77,7 +77,7 @@ AuthRouter.route("/forget-password").post(forgotPasswordController);
 AuthRouter.route("/reset-password/:token").post(resetPasswordController);
 AuthRouter.route("/send-otp").post(sendOTPController);
 AuthRouter.route("/verify-otp").post(verifyOTPController);
-AuthRouter.route("/create-wishlist").post(verifyUser, createWishlistController);
+AuthRouter.route("/create-wishlist/:productId").post(verifyUser, createWishlistController);
 AuthRouter.route("/wishlists").get(verifyUser, getWishlistController);
 AuthRouter.route("/delete-wishlist/:productId").delete(
   verifyUser,

@@ -471,10 +471,14 @@ const verifyOTPController = asyncHandler(async (req, res) => {
 
 const createWishlistController = asyncHandler(async (req, res) => {
   const userId = req.user?._id;
-  const { productId } = req.body;
+  const { productId } = req.params;
 
-  if (!productId || !userId) {
-    throw new APIError("Product ID and User ID is required.", 400);
+  if (!userId) {
+    throw new APIError("You need to be logged in.", 400);
+  }
+
+  if (!productId) {
+    throw new APIError("Product Id is required.", 400);
   }
 
   const wishlistExist = await Wishlist.findOne({ userId, productId });
@@ -483,11 +487,19 @@ const createWishlistController = asyncHandler(async (req, res) => {
     throw new APIError("Product already in wishlist.", 400);
   }
 
-  await Wishlist.create({ userId, productId });
+  const data = await Wishlist.create({ userId, productId });
+
+  if (!data) {
+    throw new APIError(
+      "Something went wrong while adding product to wishlist.",
+      500,
+    );
+  }
 
   return res.status(200).json({
     success: true,
     message: "Product added to wishlist successfully.",
+    data,
   });
 });
 
@@ -515,7 +527,11 @@ const deleteWishlistController = asyncHandler(async (req, res) => {
 
 const getWishlistController = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  const wishlists = await Wishlist.find({ userId }).populate("productId");
+  const wishlists = await Wishlist.find({ userId })
+    .populate({
+      path:"productId",
+      select:"name price discount slug image oldPrice ratings isFeatured",
+    });
 
   return res.status(200).json({
     success: true,

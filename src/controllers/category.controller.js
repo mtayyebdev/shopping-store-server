@@ -18,7 +18,7 @@ const categoriesController = asyncHandler(async (req, res) => {
 
 // admin categories controllers..................
 const createCategoryAdminController = asyncHandler(async (req, res) => {
-  const { name, parent } = req.body;
+  const { name, parent, filters } = req.body;
   const file = req.file || "";
 
   if (!name) {
@@ -43,6 +43,7 @@ const createCategoryAdminController = asyncHandler(async (req, res) => {
     slug: categorySlug,
     parent: parent || null,
     image,
+    filters: filters ? JSON.parse(filters) : [],
   });
 
   if (!category) {
@@ -57,7 +58,7 @@ const createCategoryAdminController = asyncHandler(async (req, res) => {
 
 const categoriesAdminController = asyncHandler(async (req, res) => {
   const categories = await Category.find({});
-  
+
   return res.status(200).json({
     success: true,
     message: "Categories found",
@@ -87,7 +88,7 @@ const singleCategoryAdminController = asyncHandler(async (req, res) => {
 
 const updateCategoryAdminController = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, parent } = req.body;
+  const { name, parent, filters } = req.body;
   const file = req.file || "";
 
   const category = await Category.findById(id);
@@ -102,6 +103,10 @@ const updateCategoryAdminController = asyncHandler(async (req, res) => {
 
   if (parent) {
     category.parent = parent;
+  }
+
+  if (filters) {
+    category.filters = JSON.parse(filters);
   }
 
   if (file?.path) {
@@ -132,7 +137,15 @@ const deleteCategoryAdminController = asyncHandler(async (req, res) => {
     throw new APIError("Category ID is required.", 404);
   }
 
-  await Category.findByIdAndDelete(id);
+  const category = await Category.findById(id);
+
+  if (!category) {
+    throw new APIError("Category not found.", 404);
+  }
+
+  await DeleteImageFromCloudinary(category.image.publicId).then(async () => {
+    await category.deleteOne();
+  });
 
   return res.status(200).json({
     success: true,

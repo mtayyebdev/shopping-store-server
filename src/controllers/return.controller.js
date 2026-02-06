@@ -16,8 +16,9 @@ const createReturnController = asyncHandler(async (req, res) => {
     description,
     refundMethod,
     refundAmount,
+    productName
   } = req.body;
-  const files = req.files;
+  const files = req.files || [];
 
   if (
     !orderId ||
@@ -27,7 +28,7 @@ const createReturnController = asyncHandler(async (req, res) => {
     !reason ||
     !refundMethod
   ) {
-    return new APIError("All fields are required", 404);
+    throw new APIError("All fields are required", 404);
   }
 
   const returnExists = await Return.findOne({
@@ -37,10 +38,7 @@ const createReturnController = asyncHandler(async (req, res) => {
   });
 
   if (returnExists) {
-    return new APIError(
-      "Return already created. please wait for approvel",
-      400,
-    );
+    throw new APIError("Return already created. please wait for approvel", 400);
   }
 
   const order = await Order.findOne({
@@ -51,7 +49,7 @@ const createReturnController = asyncHandler(async (req, res) => {
   });
 
   if (!order) {
-    return new APIError("Invalid order", 400);
+    throw new APIError("Invalid order", 400);
   }
 
   const deliveredDays = Math.floor(
@@ -60,13 +58,13 @@ const createReturnController = asyncHandler(async (req, res) => {
 
   const isReturnAllowed = await Product.findById(productId);
   if (deliveredDays > isReturnAllowed.returned) {
-    return new APIError("Return window closed", 400);
+    throw new APIError("Return window closed", 400);
   }
 
   const filesData = [];
   if (files?.length > 0) {
     await Promise.all(
-      files?.forEach(async (file) => {
+      files?.map(async (file) => {
         const uploadedFile = await UploadToCloudinary(file.path, "Return");
         filesData.push({
           url: uploadedFile.secure_url,
@@ -78,19 +76,20 @@ const createReturnController = asyncHandler(async (req, res) => {
 
   const returnOrder = await Return.create({
     description,
-    quantity,
+    quantity: quantity ? Number(quantity) : 1,
     orderId,
     reason,
     userId: req.user?.id,
     images: filesData,
     productId,
     orderItemId,
+    productName,
     refundMethod,
-    refundAmount,
+    refundAmount: refundAmount ? Number(refundAmount) : 0,
   });
 
   if (!returnOrder) {
-    return new APIError("Something went wrong", 400);
+    throw new APIError("Something went wrong", 400);
   }
 
   return res.status(200).json({
@@ -103,7 +102,7 @@ const createReturnController = asyncHandler(async (req, res) => {
 const getReturnsController = asyncHandler(async (req, res) => {
   const user = req.user?._id;
 
-  const returns = await Return.find({ userId: user });
+  const returns = await Return.find({ userId: user }).sort({ createdAt: -1 });
 
   return res.status(200).json({
     success: true,
@@ -115,7 +114,7 @@ const getReturnsController = asyncHandler(async (req, res) => {
 // admin controllers
 // get returns
 const getReturnsAdminController = asyncHandler(async (req, res) => {
-  const returns = await Return.find();
+  const returns = await Return.find()
 
   return res.status(200).json({
     success: true,
@@ -130,7 +129,7 @@ const updateReturnStatusAdminController = asyncHandler(async (req, res) => {
   const { returnStatus } = req.body;
 
   if (!returnId || !returnStatus) {
-    return new APIError("All fields are required", 404);
+    throw new APIError("All fields are required", 404);
   }
 
   const returnOrder = await Return.findByIdAndUpdate(returnId, {
@@ -138,7 +137,7 @@ const updateReturnStatusAdminController = asyncHandler(async (req, res) => {
   });
 
   if (!returnOrder) {
-    return new APIError("Something went wrong", 400);
+    throw new APIError("Something went wrong", 400);
   }
 
   return res.status(200).json({
