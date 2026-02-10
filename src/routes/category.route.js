@@ -16,6 +16,7 @@ import { upload } from "../utils/uploadFile.js";
 const CategoryRouter = express.Router();
 
 CategoryRouter.route("/categories").get(categoriesController);
+
 CategoryRouter.route("/admin/categories").get(
   verifyUser,
   authorizeUser(["admin"]),

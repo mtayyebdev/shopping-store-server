@@ -93,10 +93,7 @@ const searchProductController = asyncHandler(async (req, res) => {
 
   if (c) {
     orConditions.push({
-      "category_info.slug": {
-        $regex: String(c),
-        $options: "i",
-      },
+      "category_info.slug": String(c),
     });
   }
 

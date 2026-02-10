@@ -8,7 +8,7 @@ import {
 import slugify from "slugify";
 
 const categoriesController = asyncHandler(async (req, res) => {
-  const categories = await Category.find({});
+  const categories = await Category.find({}).select("-filters");
   return res.status(200).json({
     success: true,
     message: "Categories found",
