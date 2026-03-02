@@ -33,8 +33,13 @@ const reviewSchema = new mongoose.Schema(
       enum: ["pending", "verified"],
     },
     isVerifiedPurchase: {
-      type:Boolean,
-      default:true 
+      type: Boolean,
+      default: true,
+    },
+    actionStatus: {
+      type: String,
+      default: "active",
+      enum: ["active", "suspended", "deleted"],
     },
   },
   { timestamps: true },

@@ -80,8 +80,14 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    actionStatus: {
+      type: String,
+      default: "active",
+      enum: ["active", "suspended", "deleted"],
+    },
   },
   { timestamps: true },
 );
+
 const Product = mongoose.model("Product", productSchema);
 export default Product;

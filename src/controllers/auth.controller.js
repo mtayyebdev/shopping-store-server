@@ -85,7 +85,10 @@ const logoutController = asyncHandler(async (req, res) => {
 });
 
 const userController = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user?._id).select("-password");
+  const user = await User.findOne({
+    _id: req.user._id,
+    actionStatus: "active",
+  }).select("-password");
 
   if (!user) {
     throw new APIError("Profile data not found.", 400);
@@ -252,31 +255,6 @@ const updateUserInfoController = asyncHandler(async (req, res) => {
     message: "Info updated successfully.",
   });
 });
-
-// const setDefaultShippingController = asyncHandler(async (req, res) => {
-//   const { addressId } = req.params;
-
-//   const user = await User.findById(req.user._id);
-//   const userAddress = user.addresses?.find(
-//     (info) => info._id.toString() === addressId,
-//   );
-
-//   if (!userAddress) {
-//     throw new APIError("User address not found.", 404);
-//   }
-
-//   user.addresses.forEach((info) => {
-//     info.defaultShipping = false;
-//   });
-
-//   userAddress.defaultShipping = true;
-//   await user.save();
-
-//   return res.status(200).json({
-//     success: true,
-//     message: "Default shipping address set successfully.",
-//   });
-// });
 
 const deleteUserInfoController = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -527,11 +505,10 @@ const deleteWishlistController = asyncHandler(async (req, res) => {
 
 const getWishlistController = asyncHandler(async (req, res) => {
   const userId = req.user._id;
-  const wishlists = await Wishlist.find({ userId })
-    .populate({
-      path:"productId",
-      select:"name price discount slug image oldPrice ratings isFeatured",
-    });
+  const wishlists = await Wishlist.find({ userId }).populate({
+    path: "productId",
+    select: "name price discount slug image oldPrice ratings isFeatured",
+  });
 
   return res.status(200).json({
     success: true,
@@ -542,11 +519,122 @@ const getWishlistController = asyncHandler(async (req, res) => {
 
 // admin controllers.........
 const allUsersAdminController = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select("-password");
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 20;
+  const search = req.query.search || "";
+  const statusFilter = req.query.status || "";
+  const skip = (page - 1) * limit;
+
+  const users = await User.aggregate([
+    {
+      $match: {
+        $or: [
+          { name: { $regex: String(search), $options: "i" } },
+          { phone: { $regex: String(search), $options: "i" } },
+          { email: { $regex: String(search), $options: "i" } },
+        ],
+        actionStatus:
+          statusFilter === "all"
+            ? { $in: ["active", "suspended", "deleted"] }
+            : statusFilter,
+      },
+    },
+    {
+      $sort: { createdAt: -1 },
+    },
+    {
+      $skip: skip,
+    },
+    {
+      $limit: limit,
+    },
+    {
+      $project: {
+        image: 1,
+        name: 1,
+        email: 1,
+        phone: 1,
+        role: 1,
+        isVerified: 1,
+        actionStatus: 1,
+        createdAt: 1,
+      },
+    },
+  ]);
+
+  const usersStats = await User.aggregate([
+    {
+      $facet: {
+        totalUsers: [
+          { $match: { actionStatus: "active" } },
+          { $count: "count" },
+        ],
+        verifiedUsers: [
+          {
+            $match: { isVerified: true, actionStatus: "active" },
+          },
+          {
+            $count: "count",
+          },
+        ],
+        adminUsers: [
+          {
+            $match: { role: "admin", actionStatus: "active" },
+          },
+          {
+            $count: "count",
+          },
+        ],
+        suspended: [
+          {
+            $match: {
+              actionStatus: "suspended",
+            },
+          },
+          {
+            $count: "count",
+          },
+        ],
+      },
+    },
+    {
+      $project: {
+        totalUsers: {
+          $ifNull: [{ $arrayElemAt: ["$totalUsers.count", 0] }, 0],
+        },
+        verifiedUsers: {
+          $ifNull: [{ $arrayElemAt: ["$verifiedUsers.count", 0] }, 0],
+        },
+        adminUsers: {
+          $ifNull: [{ $arrayElemAt: ["$adminUsers.count", 0] }, 0],
+        },
+        suspended: {
+          $ifNull: [{ $arrayElemAt: ["$suspended.count", 0] }, 0],
+        },
+      },
+    },
+  ]);
+
+  const totalUsers = await User.countDocuments({
+    $or: [
+      { name: { $regex: String(search), $options: "i" } },
+      { phone: { $regex: String(search), $options: "i" } },
+      { email: { $regex: String(search), $options: "i" } },
+    ],
+    actionStatus:
+      statusFilter === "all"
+        ? { $in: ["active", "suspended", "deleted"] }
+        : statusFilter,
+  });
+
+  const totalPages = Math.ceil(totalUsers / limit);
 
   return res.status(200).json({
     success: true,
     message: "User found.",
+    totalPages,
+    usersStats: usersStats[0],
+    totalUsers,
     data: users,
   });
 });
@@ -558,7 +646,9 @@ const singleUserAdminController = asyncHandler(async (req, res) => {
     throw new APIError("User not found.", 400);
   }
 
-  const user = await User.findById(id);
+  const user = await User.findById(id).select(
+    "-password -deletedAt -resetPasswordToken -resetPasswordExpire -verifyEmailCode -verifyEmailExpire",
+  );
 
   if (!user) {
     throw new APIError("User not found.", 400);
@@ -584,27 +674,19 @@ const deleteUserAdminController = asyncHandler(async (req, res) => {
     throw new APIError("User not found.", 404);
   }
 
-  let publicid = user.avatar?.publicId;
+  user.deleteOne();
 
-  try {
-    await user.deleteOne();
+  await user.save();
 
-    if (publicid) {
-      await DeleteImageFromCloudinary(publicid);
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "User deleted successfully.",
-    });
-  } catch (error) {
-    throw new APIError("Error deleting user or avatar: " + error.message, 500);
-  }
+  return res.status(200).json({
+    success: true,
+    message: "User deleted successfully.",
+  });
 });
 
 const updateUserAdminController = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, email, password, gender, phone, birthDay } = req.body;
+  const { name, gender, role, birthDay, isVerified } = req.body;
   const file = req.file || "";
 
   if (!id) {
@@ -617,19 +699,11 @@ const updateUserAdminController = asyncHandler(async (req, res) => {
     throw new APIError("User not found.", 404);
   }
 
-  if (email) {
-    if (!isValidEmail(email)) {
-      throw new APIError("Invalid email", 400);
-    }
-
-    user.email = email;
-  }
-
   if (name) user.name = name;
-  if (phone) user.phone = phone;
   if (birthDay) user.birthDay = birthDay;
   if (gender) user.gender = gender;
-  if (password) user.password = password;
+  if (role) user.role = role;
+  if (isVerified !== undefined) user.isVerified = isVerified;
 
   if (file?.path) {
     const uploadFile = await UploadToCloudinary(file.path, "users");
@@ -647,7 +721,7 @@ const updateUserAdminController = asyncHandler(async (req, res) => {
 
   return res.status(200).json({
     success: true,
-    message: "User updated successfully.",
+    message: "User profile updated successfully.",
   });
 });
 
@@ -683,8 +757,9 @@ const updateUserInfoAdminController = asyncHandler(async (req, res) => {
   if (landmark) userAddress.landmark = landmark;
   if (address) userAddress.address = address;
   if (shipTo) userAddress.shipTo = shipTo;
-  if (defaultShipping) userAddress.defaultShipping = defaultShipping;
-  if (defaultBilling) userAddress.defaultBilling = defaultBilling;
+  if (defaultShipping !== undefined)
+    userAddress.defaultShipping = defaultShipping;
+  if (defaultBilling !== undefined) userAddress.defaultBilling = defaultBilling;
 
   await userAddress.save();
   await user.save();
@@ -692,6 +767,33 @@ const updateUserInfoAdminController = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: "User info updated successfully.",
+  });
+});
+
+const updateUserStatusAdminController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!id) {
+    throw new APIError("User not found.", 400);
+  }
+
+  if (!status || !["active", "suspended", "deleted"].includes(status)) {
+    throw new APIError("Status is required.", 400);
+  }
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    throw new APIError("User not found.", 404);
+  }
+
+  user.actionStatus = status;
+
+  await user.save();
+  return res.status(200).json({
+    success: true,
+    message: "User status updated successfully.",
   });
 });
 
@@ -712,7 +814,7 @@ export {
   createWishlistController,
   deleteWishlistController,
   getWishlistController,
-  // setDefaultShippingController,
+  updateUserStatusAdminController,
   deleteUserInfoController,
   forgotPasswordController,
   resetPasswordController,

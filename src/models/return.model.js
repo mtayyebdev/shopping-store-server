@@ -68,9 +68,13 @@ const returnSchema = new mongoose.Schema(
     },
 
     adminNote: String,
+    actionStatus: {
+      type: String,
+      default: "active",
+      enum: ["active", "suspended", "deleted"],
+    },
   },
   { timestamps: true },
 );
-
 const Return = mongoose.model("Return", returnSchema);
 export default Return;

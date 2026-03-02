@@ -15,6 +15,7 @@ import {
   singleProductController,
   topRatedProductsController,
   updateProductAdminController,
+  updateProductStatusAdminController,
 } from "../controllers/product.controller.js";
 import {
   authorizeUser,
@@ -29,13 +30,10 @@ const ProductRouter = express.Router();
 // public routes...............
 ProductRouter.route("/create-review/:productId").post(
   verifyUser,
-  upload.array("images",4),
-  createProductReviewController
+  upload.array("images", 4),
+  createProductReviewController,
 );
-// ProductRouter.route("/delete-review/:productId/:reviewId").delete(
-//   verifyUser,
-//   deleteReviewController
-// );
+
 ProductRouter.route("/featured").get(featuredProductsController);
 ProductRouter.route("/new-arrivals").get(newArrivalsProductsController);
 ProductRouter.route("/popular").get(popularProductsController);
@@ -54,17 +52,17 @@ ProductRouter.route("/admin/create").post(
     { name: "images", maxCount: 16 },
   ]),
   validateWithZod(productSchema),
-  createProductAdminController
+  createProductAdminController,
 );
 ProductRouter.route("/admin/products").get(
   verifyUser,
   authorizeUser(["admin"]),
-  productsAdminController
+  productsAdminController,
 );
 ProductRouter.route("/admin/product/:id").get(
   verifyUser,
   authorizeUser(["admin"]),
-  singleProductAdminController
+  singleProductAdminController,
 );
 ProductRouter.route("/admin/update/:id").patch(
   verifyUser,
@@ -74,12 +72,17 @@ ProductRouter.route("/admin/update/:id").patch(
     { name: "images", maxCount: 16 },
   ]),
   validateWithZod(updateProductSchema),
-  updateProductAdminController
+  updateProductAdminController,
+);
+ProductRouter.route("/admin/update-status/:id").patch(
+  verifyUser,
+  authorizeUser(["admin"]),
+  updateProductStatusAdminController,
 );
 ProductRouter.route("/admin/delete/:id").delete(
   verifyUser,
   authorizeUser(["admin"]),
-  deleteProductAdminController
+  deleteProductAdminController,
 );
 
 export { ProductRouter };

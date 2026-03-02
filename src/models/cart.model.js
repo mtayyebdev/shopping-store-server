@@ -43,8 +43,15 @@ const cartSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    expireAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
+    },
   },
   { timestamps: true },
 );
+
+cartSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
+
 const Cart = mongoose.model("Cart", cartSchema);
 export default Cart;

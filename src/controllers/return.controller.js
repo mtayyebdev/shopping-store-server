@@ -16,7 +16,7 @@ const createReturnController = asyncHandler(async (req, res) => {
     description,
     refundMethod,
     refundAmount,
-    productName
+    productName,
   } = req.body;
   const files = req.files || [];
 
@@ -43,6 +43,7 @@ const createReturnController = asyncHandler(async (req, res) => {
 
   const order = await Order.findOne({
     _id: orderId,
+    isDeleted: false,
     "items._id": orderItemId,
     orderStatus: "delivered",
     paymentStatus: "paid",
@@ -102,7 +103,7 @@ const createReturnController = asyncHandler(async (req, res) => {
 const getReturnsController = asyncHandler(async (req, res) => {
   const user = req.user?._id;
 
-  const returns = await Return.find({ userId: user }).sort({ createdAt: -1 });
+  const returns = await Return.find({ userId: user, isDeleted: false }).sort({ createdAt: -1 });
 
   return res.status(200).json({
     success: true,
@@ -114,7 +115,7 @@ const getReturnsController = asyncHandler(async (req, res) => {
 // admin controllers
 // get returns
 const getReturnsAdminController = asyncHandler(async (req, res) => {
-  const returns = await Return.find()
+  const returns = await Return.find();
 
   return res.status(200).json({
     success: true,
@@ -146,6 +147,41 @@ const updateReturnStatusAdminController = asyncHandler(async (req, res) => {
   });
 });
 
+const getReturnAdminController = asyncHandler(async (req, res) => {
+  const { returnId } = req.params;
+
+  if (!returnId) {
+    throw new APIError("Return ID not found", 404);
+  }
+
+  const resturnData = await Return.findById(returnId);
+
+  if (!resturnData) {
+    throw new APIError("Return data not found", 400);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Return data found successfully",
+    data: resturnData,
+  });
+});
+
+const deleteReturnAdminController = asyncHandler(async (req, res) => {
+  const { returnId } = req.params;
+
+  if (!returnId) {
+    throw new APIError("Return ID not found", 404);
+  }
+
+  await Return.findByIdAndDelete(returnId);
+
+  return res.status(200).json({
+    success: true,
+    message: "Return deleted successfully",
+  });
+});
+
 export {
   createReturnController,
   getReturnsController,
@@ -153,4 +189,6 @@ export {
   // admin
   getReturnsAdminController,
   updateReturnStatusAdminController,
+  getReturnAdminController,
+  deleteReturnAdminController
 };

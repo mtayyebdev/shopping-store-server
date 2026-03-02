@@ -27,9 +27,10 @@ const couponSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
-    isActive: {
-      type: Boolean,
-      default: true,
+    actionStatus: {
+      type: String,
+      enum: ["active", "inactive", "deleted"],
+      default: "active",
     },
     usageLimit: {
       type: Number,
@@ -45,10 +46,18 @@ const couponSchema = new mongoose.Schema(
           type: Number,
           default: 1,
         },
-      },{ _id: false }
+      },
+      { _id: false },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
+couponSchema.index({ code: 1 });
+couponSchema.index(
+  { expiresAt: 1 },
+  { expireAfterSeconds: 10 * 24 * 60 * 60 * 1000 },
+); // TTL index to automatically delete expired coupons after 10 days
+
 const Coupon = mongoose.model("Coupon", couponSchema);
 export default Coupon;

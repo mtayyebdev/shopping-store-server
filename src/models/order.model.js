@@ -81,8 +81,27 @@ const orderSchema = new mongoose.Schema(
     totalPrice: Number,
     paidAt: Date,
     deliveredAt: Date,
+    cancelledAt: Date,
+    returnedAt: Date,
+    coupon: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Coupon",
+    },
+    returnId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Return",
+    },
+    actionStatus: {
+      type: String,
+      default: "active",
+      enum: ["active", "suspended", "deleted"],
+    },
+     // For guest checkout
+    guestEmail: String,
+    guestName: String,
   },
   { timestamps: true },
 );
+
 const Order = mongoose.model("Order", orderSchema);
 export default Order;

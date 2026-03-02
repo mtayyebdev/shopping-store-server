@@ -5,6 +5,7 @@ import {
   updateCouponAdminController,
   useCouponController,
   singleCouponAdminController,
+  updateCouponStatusAdminController,
 } from "../controllers/coupon.controller.js";
 import express from "express";
 import {
@@ -23,28 +24,33 @@ CouponRouter.route("/admin/create").post(
   verifyUser,
   authorizeUser(["admin"]),
   validateWithZod(createCouponSchema),
-  createCouponAdminController
+  createCouponAdminController,
 );
 CouponRouter.route("/admin/update/:id").patch(
   verifyUser,
   authorizeUser(["admin"]),
   validateWithZod(updateCouponSchema),
-  updateCouponAdminController
+  updateCouponAdminController,
 );
 CouponRouter.route("/admin/delete/:id").delete(
   verifyUser,
   authorizeUser(["admin"]),
-  deleteCouponAdminController
+  deleteCouponAdminController,
 );
 CouponRouter.route("/admin/coupons").get(
   verifyUser,
   authorizeUser(["admin"]),
-  couponsAdminController
+  couponsAdminController,
 );
 CouponRouter.route("/admin/single-coupon/:id").get(
   verifyUser,
   authorizeUser(["admin"]),
-  singleCouponAdminController
+  singleCouponAdminController,
+);
+CouponRouter.route("/admin/update-status/:id").patch(
+  verifyUser,
+  authorizeUser(["admin"]),
+  updateCouponStatusAdminController,
 );
 
 export { CouponRouter };

@@ -20,15 +20,19 @@ const categorySchema = new mongoose.Schema(
       url: String,
       publicId: String,
     },
-    filters: [
-      {
+    filters: [] /*{
         name: String,
         values: [String],
         type: String, // checkbox, radio, select
-      },
-    ],
+      },*/,
+    actionStatus: {
+      type: String,
+      default: "active",
+      enum: ["active", "suspended", "deleted"],
+    },
   },
   { timestamps: true },
 );
+
 const Category = mongoose.model("Category", categorySchema);
 export default Category;

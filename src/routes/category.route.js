@@ -6,6 +6,8 @@ import {
   deleteCategoryAdminController,
   singleCategoryAdminController,
   updateCategoryAdminController,
+  allCategoriesAdminController,
+  updateCategoryStatusAdminController
 } from "../controllers/category.controller.js";
 import {
   authorizeUser,
@@ -17,32 +19,43 @@ const CategoryRouter = express.Router();
 
 CategoryRouter.route("/categories").get(categoriesController);
 
+// admin routes..................
 CategoryRouter.route("/admin/categories").get(
   verifyUser,
   authorizeUser(["admin"]),
-  categoriesAdminController
+  categoriesAdminController,
+);
+CategoryRouter.route("/admin/allcategories").get(
+  verifyUser,
+  authorizeUser(["admin"]),
+  allCategoriesAdminController,
 );
 CategoryRouter.route("/admin/create").post(
   verifyUser,
   authorizeUser(["admin"]),
   upload.single("image"),
-  createCategoryAdminController
+  createCategoryAdminController,
 );
 CategoryRouter.route("/admin/category/:id").get(
   verifyUser,
   authorizeUser(["admin"]),
-  singleCategoryAdminController
+  singleCategoryAdminController,
 );
 CategoryRouter.route("/admin/update/:id").patch(
   verifyUser,
   authorizeUser(["admin"]),
   upload.single("image"),
-  updateCategoryAdminController
+  updateCategoryAdminController,
 );
 CategoryRouter.route("/admin/delete/:id").delete(
   verifyUser,
   authorizeUser(["admin"]),
-  deleteCategoryAdminController
+  deleteCategoryAdminController,
+);
+CategoryRouter.route("/admin/update-status/:id").patch(
+  verifyUser,
+  authorizeUser(["admin"]),
+  updateCategoryStatusAdminController,
 );
 
 export { CategoryRouter };

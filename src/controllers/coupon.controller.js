@@ -1,6 +1,7 @@
 import Coupon from "../models/coupon.model.js";
 import { APIError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/trycatch.js";
+import { getDateFilter } from "../utils/dateFilter.js";
 import * as z from "zod";
 
 const useCouponController = asyncHandler(async (req, res) => {
@@ -22,7 +23,7 @@ const useCouponController = asyncHandler(async (req, res) => {
 
   const coupon = await Coupon.findOne({
     code: code?.toUpperCase(),
-    isActive: true,
+    actionStatus: "active",
   });
 
   if (!coupon) {
@@ -38,21 +39,21 @@ const useCouponController = asyncHandler(async (req, res) => {
   if (coupon.minOrderAmount > Number(totalAmount)) {
     throw new APIError(
       `Sorry, this coupon requires a minimum order of ${coupon.minOrderAmount}`,
-      400
+      400,
     );
   }
 
   if (coupon?.maxOrderAmount < Number(totalAmount)) {
     throw new APIError(
       `This coupon is valid only for orders of ${coupon.maxOrderAmount} or less.`,
-      400
+      400,
     );
   }
 
   if (req.user?._id) {
     if (coupon?.usageLimit !== 0) {
       const currentUser = coupon.usedBy.find(
-        (c) => c.userId.toString() === req.user._id.toString()
+        (c) => c.userId.toString() === req.user._id.toString(),
       );
 
       if (currentUser && currentUser.usedCount >= coupon.usageLimit) {
@@ -61,7 +62,7 @@ const useCouponController = asyncHandler(async (req, res) => {
     }
 
     const usageUser = coupon.usedBy.find(
-      (c) => c.userId.toString() === req.user._id.toString()
+      (c) => c.userId.toString() === req.user._id.toString(),
     );
 
     if (usageUser) {
@@ -100,7 +101,7 @@ const createCouponAdminController = asyncHandler(async (req, res) => {
   if (couponExist) {
     throw new APIError(
       "Coupon already exist. Please try another coupon code.",
-      400
+      400,
     );
   }
 
@@ -108,12 +109,10 @@ const createCouponAdminController = asyncHandler(async (req, res) => {
     code: code.toUpperCase(),
     discountType,
     discountValue,
-    isActive,
+    actionStatus: isActive ? "active" : "inactive",
     minOrderAmount,
     maxOrderAmount,
-    expiresAt: expiresIn
-      ? new Date(Date.now() + Number(expiresIn) * 24 * 60 * 60 * 1000)
-      : "",
+    expiresAt: expiresIn,
     usageLimit,
   });
 
@@ -128,12 +127,112 @@ const createCouponAdminController = asyncHandler(async (req, res) => {
 });
 
 const couponsAdminController = asyncHandler(async (req, res) => {
-  const coupons = await Coupon.find({});
+  // filters
+  const dateRange = req.query.date || "all";
+  const discountType = req.query.discount;
+  const status = req.query.status;
+
+  // searching and pagination
+  const searchQuery = req.query.search || "";
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  let filter = {};
+  const now = new Date();
+
+  if (dateRange) {
+    Object.assign(filter, getDateFilter(dateRange));
+  }
+
+  if (discountType) {
+    filter.discountType =
+      discountType === "all" ? { $in: ["percentage", "fixed"] } : discountType;
+  }
+
+  if (status) {
+    switch (status) {
+      case "active":
+        filter.actionStatus = "active";
+        break;
+      case "inactive":
+        filter.actionStatus = "inactive";
+        break;
+      case "expired":
+        filter.expiresAt = { $lte: now };
+        break;
+      case "deleted": {
+        filter.actionStatus = "deleted";
+        break;
+      }
+      case "all":
+      default:
+        break;
+    }
+  }
+
+  const coupons = await Coupon.aggregate([
+    {
+      $match: {
+        code: { $regex: searchQuery, $options: "i" },
+        ...filter,
+      },
+    },
+    { $sort: { createdAt: -1 } },
+    { $skip: skip },
+    { $limit: limit },
+  ]);
+
+  const totalCoupons = await Coupon.countDocuments({
+    code: { $regex: searchQuery, $options: "i" },
+    ...filter,
+  });
+
+  const couponStats = await Coupon.aggregate([
+    {
+      $facet: {
+        totalCoupons: [{ $count: "total" }],
+        activeCoupons: [
+          { $match: { actionStatus: "active" } },
+          { $count: "total" },
+        ],
+        expiredCoupons: [
+          { $match: { expiresAt: { $lte: now } } },
+          { $count: "total" },
+        ],
+        totalUsage: [
+          { $unwind: "$usedBy" },
+          { $group: { _id: null, totalUsage: { $sum: "$usedBy.usedCount" } } },
+        ],
+      },
+    },
+    {
+      $project: {
+        totalCoupons: {
+          $ifNull: [{ $arrayElemAt: ["$totalCoupons.total", 0] }, 0],
+        },
+        activeCoupons: {
+          $ifNull: [{ $arrayElemAt: ["$activeCoupons.total", 0] }, 0],
+        },
+        expiredCoupons: {
+          $ifNull: [{ $arrayElemAt: ["$expiredCoupons.total", 0] }, 0],
+        },
+        totalUsage: {
+          $ifNull: [{ $arrayElemAt: ["$totalUsage.totalUsage", 0] }, 0],
+        },
+      },
+    },
+  ]);
+
+  const totalPages = Math.ceil(totalCoupons / limit);
 
   return res.status(200).json({
     success: true,
     message: "Coupons found.",
     data: coupons,
+    totalPages,
+    totalCoupons,
+    couponStats: couponStats[0],
   });
 });
 
@@ -166,7 +265,6 @@ const updateCouponAdminController = asyncHandler(async (req, res) => {
     minOrderAmount,
     maxOrderAmount,
     expiresIn,
-    isActive,
     usageLimit,
   } = req.body;
 
@@ -180,15 +278,16 @@ const updateCouponAdminController = asyncHandler(async (req, res) => {
     throw new APIError("Coupon not found.", 404);
   }
 
+  if (expiresIn <= new Date()) {
+    throw new APIError("Expiration date must be in the future.", 400);
+  }
+
   coupon.code = code?.toUpperCase() || coupon.code;
   coupon.discountType = discountType || coupon.discountType;
   coupon.discountValue = discountValue || coupon.discountValue;
   coupon.minOrderAmount = minOrderAmount || coupon.minOrderAmount;
   coupon.maxOrderAmount = maxOrderAmount || coupon.maxOrderAmount;
-  coupon.expiresAt = expiresIn
-    ? new Date(Date.now() + Number(expiresIn) * 24 * 60 * 60 * 1000)
-    : coupon.expiresAt;
-  coupon.isActive = isActive || coupon.isActive;
+  coupon.expiresAt = expiresIn;
   coupon.usageLimit = usageLimit || coupon.usageLimit;
 
   await coupon.save();
@@ -220,6 +319,34 @@ const deleteCouponAdminController = asyncHandler(async (req, res) => {
   });
 });
 
+const updateCouponStatusAdminController = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!id) {
+    throw new APIError("Coupon ID not found.", 404);
+  }
+
+  if (!["active", "inactive", "deleted"].includes(status)) {
+    throw new APIError("Invalid status value.", 400);
+  }
+
+  const coupon = await Coupon.findById(id);
+
+  if (!coupon) {
+    throw new APIError("Coupon not found.", 404);
+  }
+
+  coupon.actionStatus = status;
+
+  await coupon.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Coupon status updated successfully.",
+  });
+});
+
 export {
   useCouponController,
   couponsAdminController,
@@ -227,4 +354,5 @@ export {
   updateCouponAdminController,
   createCouponAdminController,
   singleCouponAdminController,
+  updateCouponStatusAdminController,
 };

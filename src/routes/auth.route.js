@@ -16,7 +16,7 @@ import {
   createWishlistController,
   deleteWishlistController,
   getWishlistController,
-  // setDefaultShippingController,
+  updateUserStatusAdminController,
   deleteUserInfoController,
   forgotPasswordController,
   resetPasswordController,
@@ -65,10 +65,6 @@ AuthRouter.route("/update-info/:id").patch(
   verifyUser,
   updateUserInfoController,
 );
-// AuthRouter.route("/set-default-shipping/:addressId").patch(
-//   verifyUser,
-//   setDefaultShippingController
-// );
 AuthRouter.route("/delete-info/:id").delete(
   verifyUser,
   deleteUserInfoController,
@@ -77,7 +73,10 @@ AuthRouter.route("/forget-password").post(forgotPasswordController);
 AuthRouter.route("/reset-password/:token").post(resetPasswordController);
 AuthRouter.route("/send-otp").post(sendOTPController);
 AuthRouter.route("/verify-otp").post(verifyOTPController);
-AuthRouter.route("/create-wishlist/:productId").post(verifyUser, createWishlistController);
+AuthRouter.route("/create-wishlist/:productId").post(
+  verifyUser,
+  createWishlistController,
+);
 AuthRouter.route("/wishlists").get(verifyUser, getWishlistController);
 AuthRouter.route("/delete-wishlist/:productId").delete(
   verifyUser,
@@ -110,6 +109,11 @@ AuthRouter.route("/admin/update-user-info/:userId").patch(
   verifyUser,
   authorizeUser(["admin"]),
   updateUserInfoAdminController,
+);
+AuthRouter.route("/admin/update-user-status/:id").patch(
+  verifyUser,
+  authorizeUser(["admin"]),
+  updateUserStatusAdminController,
 );
 
 export { AuthRouter };

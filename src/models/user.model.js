@@ -40,8 +40,13 @@ const userInfo = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    actionStatus: {
+      type: String,
+      default: "active",
+      enum: ["active", "suspended", "deleted"],
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const userSchema = new mongoose.Schema(
@@ -92,8 +97,13 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    actionStatus: {
+      type: String,
+      default: "active",
+      enum: ["active", "suspended", "deleted"],
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 userSchema.pre("save", async function (next) {
@@ -116,7 +126,7 @@ userSchema.methods.resetPassToken = function () {
     process.env.JWT_TOKEN,
     {
       expiresIn: 15 * 60 * 1000, // 15 minutes
-    }
+    },
   );
   this.resetPasswordToken = token;
   this.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes

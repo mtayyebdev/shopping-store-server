@@ -1,5 +1,32 @@
 import * as z from "zod";
 
+const parseJsonIfString = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const optionalCoercedNumber = z.preprocess(
+  (value) =>
+    value === "" || value === null || value === undefined ? undefined : value,
+  z.coerce.number().optional(),
+);
+
+const optionalCoercedBoolean = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) return undefined;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return value;
+}, z.coerce.boolean().optional());
+
+const specificationSchema = z.object({
+  label: z.string(),
+  content: z.array(z.string()),
+});
+
 // User schemas......................
 const signUpSchema = z.object({
   name: z
@@ -33,25 +60,30 @@ const userInfoSchema = z.object({
 // Product schemas..........................
 const productSchema = z.object({
   name: z.string().min(4, "Product name must be at least 4 characters"),
-  price: z.number().min(1, "Product price must be at least 1"),
-  tags: z.array().min(1, "Product tags must be at least 1"),
-  stock: z.number().min(1, "Product stock must be at least 1"),
+  price: z.coerce.number().min(1, "Product price must be at least 1"),
+  tags: z.preprocess(
+    parseJsonIfString,
+    z.array(z.string()).min(1, "Product tags must be at least 1"),
+  ),
+  stock: z.coerce.number().min(1, "Product stock must be at least 1"),
   longDesc: z
     .string()
     .min(10, "Product long description must be at least 10 characters"),
   shortDesc: z
     .string()
     .min(10, "Product short description must be at least 10 characters"),
-  oldPrice: z.number().optional(),
-  shippingPrice: z.number().optional(),
-  returned: z.string().optional(),
-  sku: z.string().optional(),
-  specifications: z.array().optional(),
-  isFeatured: z.boolean().optional(),
-  size: z.array().optional(),
-  color: z.array().optional(),
+  oldPrice: optionalCoercedNumber,
+  shippingPrice: optionalCoercedNumber,
+  returned: optionalCoercedNumber,
+  sku: z.string({ error: "SKU is required" }),
+  specifications: z
+    .preprocess(parseJsonIfString, z.array(specificationSchema))
+    .optional(),
+  isFeatured: optionalCoercedBoolean,
+  size: z.preprocess(parseJsonIfString, z.array(z.string())).optional(),
+  color: z.preprocess(parseJsonIfString, z.array(z.string())).optional(),
   brand: z.string().optional(),
-  category: z.string().optional(),
+  categoryId: z.string({ error: "Please select category" }),
 });
 
 const updateProductSchema = z.object({
@@ -59,9 +91,20 @@ const updateProductSchema = z.object({
     .string()
     .min(4, "Product name must be at least 4 characters")
     .optional(),
-  price: z.number().min(1, "Product price must be at least 1").optional(),
-  tags: z.array().min(1, "Product tags must be at least 1").optional(),
-  stock: z.number().min(1, "Product stock must be at least 1").optional(),
+  price: z.coerce
+    .number()
+    .min(1, "Product price must be at least 1")
+    .optional(),
+  tags: z
+    .preprocess(
+      parseJsonIfString,
+      z.array(z.string()).min(1, "Product tags must be at least 1"),
+    )
+    .optional(),
+  stock: z.coerce
+    .number()
+    .min(1, "Product stock must be at least 1")
+    .optional(),
   longDesc: z
     .string()
     .min(10, "Product long description must be at least 10 characters")
@@ -70,17 +113,21 @@ const updateProductSchema = z.object({
     .string()
     .min(10, "Product short description must be at least 10 characters")
     .optional(),
-  oldPrice: z.number().optional(),
-  shippingPrice: z.number().optional(),
-  returned: z.string().optional(),
+  oldPrice: optionalCoercedNumber,
+  shippingPrice: optionalCoercedNumber,
+  returned: optionalCoercedNumber,
   sku: z.string().optional(),
-  specifications: z.array().optional(),
-  isFeatured: z.boolean().optional(),
-  size: z.array().optional(),
-  color: z.array().optional(),
+  specifications: z
+    .preprocess(parseJsonIfString, z.array(specificationSchema))
+    .optional(),
+  isFeatured: optionalCoercedBoolean,
+  size: z.preprocess(parseJsonIfString, z.array(z.string())).optional(),
+  color: z.preprocess(parseJsonIfString, z.array(z.string())).optional(),
   brand: z.string().optional(),
   category: z.string().optional(),
-  imgsIdsToDelete: z.array(z.string()).optional(),
+  imgsIdsToDelete: z
+    .preprocess(parseJsonIfString, z.array(z.string()))
+    .optional(),
 });
 
 // Coupon schemas............
@@ -90,19 +137,18 @@ const createCouponSchema = z.object({
   discountValue: z.number(),
   minOrderAmount: z.number().optional(),
   maxOrderAmount: z.number().optional(),
-  expiresIn: z.number().optional(),
+  expiresIn: z.string().optional(),
   isActive: z.boolean().optional(),
   usageLimit: z.number().optional(),
 });
 
 const updateCouponSchema = z.object({
-  code: z.string().optional(),
+  code: z.string().min(8, "Coupon code must be at least 8 characters").optional(),
   discountType: z.string().optional(),
   discountValue: z.number().optional(),
   minOrderAmount: z.number().optional(),
   maxOrderAmount: z.number().optional(),
-  expiresIn: z.number().optional(),
-  isActive: z.boolean().optional(),
+  expiresIn: z.string().optional(),
   usageLimit: z.number().optional(),
 });
 
@@ -113,5 +159,5 @@ export {
   userInfoSchema,
   updateProductSchema,
   createCouponSchema,
-  updateCouponSchema
+  updateCouponSchema,
 };

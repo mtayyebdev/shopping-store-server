@@ -3,6 +3,8 @@ import {
   getReturnsAdminController,
   getReturnsController,
   updateReturnStatusAdminController,
+  getReturnAdminController,
+  deleteReturnAdminController,
 } from "../controllers/return.controller.js";
 import {
   authorizeUser,
@@ -20,16 +22,26 @@ ReturnRouter.route("/create").post(
 );
 ReturnRouter.route("/returns").get(verifyUser, getReturnsController);
 
-// admin
+// admin routes............
 ReturnRouter.route("/admin/returns").get(
   verifyUser,
   authorizeUser(["admin"]),
   getReturnsAdminController,
+);
+ReturnRouter.route("/admin/return/:returnId").get(
+  verifyUser,
+  authorizeUser(["admin"]),
+  getReturnAdminController,
 );
 ReturnRouter.route("/admin/update/:returnId").patch(
   verifyUser,
   authorizeUser(["admin"]),
   updateReturnStatusAdminController,
 );
+ReturnRouter.route("/admin/delete/:returnId").delete(
+  verifyUser,
+  authorizeUser(["admin"]),
+  deleteReturnAdminController,
+);
 
-export {ReturnRouter};
+export { ReturnRouter };
