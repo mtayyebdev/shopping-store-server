@@ -14,6 +14,8 @@ import { CartRouter } from "./src/routes/cart.route.js";
 import { OrderRouter } from "./src/routes/order.route.js";
 import { ReturnRouter } from "./src/routes/return.route.js";
 import { DeliveryBoyRouter } from "./src/routes/deliveryBoy.route.js";
+import { StoreSettingRouter } from "./src/routes/storeSetting.route.js";
+import { PaymentSettingRouter } from "./src/routes/paymentSetting.route.js";
 
 const app = express();
 
@@ -35,6 +37,8 @@ app.use("/api/cart", CartRouter);
 app.use("/api/order", OrderRouter);
 app.use("/api/return", ReturnRouter);
 app.use("/api/rider", DeliveryBoyRouter);
+app.use("/api/store-setting", StoreSettingRouter);
+app.use("/api/payment-setting", PaymentSettingRouter);
 
 app.use(errorHandler);
 

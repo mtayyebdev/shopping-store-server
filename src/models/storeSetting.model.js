@@ -24,22 +24,24 @@ const storeSettingSchema = new mongoose.Schema(
     },
 
     logo: {
-      type: String,
+      url: String,
+      publicId: String,
     },
 
     favicon: {
-      type: String,
+      url: String,
+      publicId: String,
     },
 
     currency: {
       code: {
         type: String,
-        default: "USD",
+        default: "PKR",
       },
 
       symbol: {
         type: String,
-        default: "$",
+        default: "Rs.",
       },
     },
 
@@ -97,12 +99,7 @@ const storeSettingSchema = new mongoose.Schema(
       },
     },
 
-    socialLinks: {
-      facebook: String,
-      instagram: String,
-      twitter: String,
-      youtube: String,
-    },
+    socialLinks: [],
     language: String,
     lowStockAlert: {
       type: Number,

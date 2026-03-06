@@ -4,7 +4,7 @@ const paymentSettingsSchema = new mongoose.Schema(
   {
     currency: {
       type: String,
-      default: "USD",
+      default: "PKR",
     },
 
     paymentMethods: {
@@ -69,8 +69,5 @@ const paymentSettingsSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-const PaymentSetting = mongoose.model(
-  "PaymentSettings",
-  paymentSettingsSchema,
-);
+const PaymentSetting = mongoose.model("PaymentSettings", paymentSettingsSchema);
 export default PaymentSetting;
