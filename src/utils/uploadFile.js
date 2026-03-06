@@ -33,7 +33,7 @@ const DeleteImageFromCloudinary = async (publicId) => {
       resource_type: "image",
     });
     if (file.result != "ok") {
-      throw new APIError("Image deleting error.");
+      throw new APIError("Image deleting error.", 400);
     }
     return true;
   } catch (error) {

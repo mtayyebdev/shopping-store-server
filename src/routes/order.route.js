@@ -10,6 +10,7 @@ import {
   updateOrderStatusAdminController,
   createDirectOrderController,
   updateOrderActionStatusAdminController,
+  assignOrderToDeliveryBoyAdminController,
 } from "../controllers/order.controller.js";
 import {
   authorizeUser,
@@ -55,5 +56,9 @@ OrderRouter.route("/admin/update-action-status/:id").patch(
   authorizeUser(["admin"]),
   updateOrderActionStatusAdminController,
 );
-
+OrderRouter.route("/admin/assign-order/:orderId").patch(
+  verifyUser,
+  authorizeUser(["admin"]),
+  assignOrderToDeliveryBoyAdminController,
+);
 export { OrderRouter };

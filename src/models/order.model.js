@@ -36,6 +36,7 @@ const orderSchema = new mongoose.Schema(
     },
     items: [
       {
+        _id: false,
         product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
@@ -52,12 +53,21 @@ const orderSchema = new mongoose.Schema(
           default: false,
         },
       },
-      { _id: false },
     ],
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: false,
+    },
+    deliveryBoy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DeliveryBoy",
+      required: false,
+    },
+    shippingInfo: {
+      courier: String,
+      trackingNumber: String,
+      shippedAt: Date,
     },
     paymentMethod: {
       type: String,
@@ -66,6 +76,8 @@ const orderSchema = new mongoose.Schema(
     },
     paymentResult: {
       id: String,
+      transactionId: String,
+      gateway: String,
       status: String,
       update_time: String,
       email_address: String,
@@ -96,7 +108,7 @@ const orderSchema = new mongoose.Schema(
       default: "active",
       enum: ["active", "suspended", "deleted"],
     },
-     // For guest checkout
+    // For guest checkout
     guestEmail: String,
     guestName: String,
   },

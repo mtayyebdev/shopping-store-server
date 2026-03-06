@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const returnSchema = new mongoose.Schema(
   {
+    returnId: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      uppercase: true,
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -36,15 +43,11 @@ const returnSchema = new mongoose.Schema(
         "other",
         "change_mind",
         "wrong_color",
-
       ],
       required: true,
     },
-
     description: String,
-
     images: Array, // [{ url: String, publicId: String }]
-
     status: {
       type: String,
       enum: [
@@ -55,19 +58,15 @@ const returnSchema = new mongoose.Schema(
         "received",
         "refunded",
         "replaced",
-        "completed"
+        "completed",
       ],
       default: "requested",
     },
-
     refundAmount: Number,
-
     refundMethod: {
       type: String,
       enum: ["wallet", "bank", "original"],
     },
-
-    adminNote: String,
     actionStatus: {
       type: String,
       default: "active",

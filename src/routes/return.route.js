@@ -5,6 +5,7 @@ import {
   updateReturnStatusAdminController,
   getReturnAdminController,
   deleteReturnAdminController,
+  updateReturnActionStatusAdminController,
 } from "../controllers/return.controller.js";
 import {
   authorizeUser,
@@ -33,7 +34,7 @@ ReturnRouter.route("/admin/return/:returnId").get(
   authorizeUser(["admin"]),
   getReturnAdminController,
 );
-ReturnRouter.route("/admin/update/:returnId").patch(
+ReturnRouter.route("/admin/update-status/:returnId").patch(
   verifyUser,
   authorizeUser(["admin"]),
   updateReturnStatusAdminController,
@@ -42,6 +43,11 @@ ReturnRouter.route("/admin/delete/:returnId").delete(
   verifyUser,
   authorizeUser(["admin"]),
   deleteReturnAdminController,
+);
+ReturnRouter.route("/admin/update-action-status/:returnId").patch(
+  verifyUser,
+  authorizeUser(["admin"]),
+  updateReturnActionStatusAdminController,
 );
 
 export { ReturnRouter };

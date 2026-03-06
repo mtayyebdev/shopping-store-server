@@ -143,13 +143,66 @@ const createCouponSchema = z.object({
 });
 
 const updateCouponSchema = z.object({
-  code: z.string().min(8, "Coupon code must be at least 8 characters").optional(),
+  code: z
+    .string()
+    .min(8, "Coupon code must be at least 8 characters")
+    .optional(),
   discountType: z.string().optional(),
   discountValue: z.number().optional(),
   minOrderAmount: z.number().optional(),
   maxOrderAmount: z.number().optional(),
   expiresIn: z.string().optional(),
   usageLimit: z.number().optional(),
+});
+
+// delivery boy schemas
+const createDeliveryBoySchema = z.object({
+  name: z
+    .string()
+    .min(4, "Name must be at least 4 characters")
+    .max(50, "Name must be at most 50 characters"),
+  email: z.email(),
+  phone: z
+    .string()
+    .min(11, "Phone must be at least 11 characters")
+    .max(11, "Phone must be most 11 characters"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100, "Password must be most 100 characters"),
+  vehicleType: z.string(),
+  vehicleNumber: z.string(),
+  country: z.string(),
+  city: z.string(),
+  state: z.string(),
+  postalCode: z.string(),
+  fullAddress: z.string().optional(),
+});
+
+const updateDeliveryBoySchema = z.object({
+  name: z
+    .string()
+    .min(4, "Name must be at least 4 characters")
+    .max(50, "Name must be at most 50 characters")
+    .optional(),
+  email: z.email().optional(),
+  phone: z
+    .string()
+    .min(11, "Phone must be at least 11 characters")
+    .max(11, "Phone must be most 11 characters")
+    .optional(),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100, "Password must be most 100 characters")
+    .optional(),
+  vehicleType: z.string().optional(),
+  vehicleNumber: z.string().optional(),
+  country: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  postalCode: z.string().optional(),
+  fullAddress: z.string().optional()
 });
 
 export {
@@ -160,4 +213,6 @@ export {
   updateProductSchema,
   createCouponSchema,
   updateCouponSchema,
+  createDeliveryBoySchema,
+  updateDeliveryBoySchema,
 };

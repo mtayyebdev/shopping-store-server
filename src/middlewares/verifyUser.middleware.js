@@ -1,24 +1,21 @@
 import User from "../models/user.model.js";
+import DeliveryBoy from "../models/delivery_boy.js";
 import jwt from "jsonwebtoken";
 import { APIError } from "../utils/apiError.js";
 
 const verifyUser = async (req, res, next) => {
   try {
-    const token = (req.cookies?.userToken) || "";
+    const token = req.cookies?.userToken || "";
 
     if (!token) throw new APIError("Unauthorized", 401);
 
     const validToken = jwt.verify(token, process.env.JWT_TOKEN);
 
-    if (!validToken) {
-      throw new APIError("Unauthorized", 401);
-    }
+    if (!validToken) throw new APIError("Unauthorized", 401);
 
-    const user = await User.findById(validToken.UserId);
+    const user = await User.findById(validToken.UserId).select("-password");
 
-    if (!user) {
-      throw new APIError("Unauthorized", 401);
-    }
+    if (!user) throw new APIError("Unauthorized", 401);
 
     req.user = user;
     next();
@@ -46,4 +43,28 @@ const authorizeUser =
     }
   };
 
-export { verifyUser, authorizeUser };
+const verifyRider = async (req, res, next) => {
+  try {
+    const token = req.cookies?.riderToken || "";
+
+    if (!token) throw new APIError("Unauthorized", 401);
+
+    const isValidToken = jwt.verify(token, process.env.JWT_TOKEN);
+
+    if (!isValidToken) throw new APIError("Unauthorized", 401);
+
+    const rider = await DeliveryBoy.findById(isValidToken?.ID).select(
+      "-password",
+    );
+
+    if (!rider) throw new APIError("Unauthorized", 401);
+
+    req.deliveryBoy = rider;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export { verifyUser, authorizeUser, verifyRider };

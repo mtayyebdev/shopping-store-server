@@ -2,10 +2,12 @@ import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
 import Cart from "../models/cart.model.js";
 import Review from "../models/review.model.js";
+import DeliveryBoy from "../models/delivery_boy.js";
 import { asyncHandler } from "../utils/trycatch.js";
 import { APIError } from "../utils/apiError.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { getDateFilter } from "../utils/dateFilter.js";
+import { generateUniqueID } from "../utils/generateID.js";
 
 const createOrderController = asyncHandler(async (req, res) => {
   const {
@@ -25,7 +27,15 @@ const createOrderController = asyncHandler(async (req, res) => {
     throw new APIError("Please enter shipping address.");
   }
 
+  let exists = true;
+  let orderId;
+  while (exists) {
+    orderId = generateUniqueID("ORD", 12);
+    exists = await Order.findOne({ orderId });
+  }
+
   const order = await Order.create({
+    orderId,
     itemsPrice,
     shippingPrice,
     taxPrice,
@@ -65,8 +75,6 @@ const createOrderController = asyncHandler(async (req, res) => {
   order.shippingAddress.district = shippingAddress?.district;
   order.shippingAddress.landmark = shippingAddress?.landmark;
   order.shippingAddress.shipTo = shippingAddress?.shipTo;
-
-  order.orderId = order?._id.toString().toUpperCase();
 
   await order.save();
 
@@ -142,7 +150,14 @@ const createDirectOrderController = asyncHandler(async (req, res) => {
     size,
   });
 
-  order.orderId = order._id.toString().toUpperCase();
+  let exists = true;
+  let orderId;
+  while (exists) {
+    orderId = generateUniqueID("ORD", 12);
+    exists = await Order.findById(orderId);
+  }
+
+  order.orderId = orderId;
   product.sold = product.sold + quantity;
 
   await order.save();
@@ -300,8 +315,8 @@ const ordersAdminController = asyncHandler(async (req, res) => {
     status = "all",
     time = "all",
     search = "",
-    paymentStatus,
-    actionStatus,
+    paymentStatus = "all",
+    actionStatus = "all",
   } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -510,8 +525,8 @@ const updateOrderStatusAdminController = asyncHandler(async (req, res) => {
 
   const orderFlow = {
     pending: ["confirmed", "cancelled"],
-    confirmed: ["processing", "cancelled"],
-    processing: ["shipped", "cancelled"],
+    confirmed: ["processing"],
+    processing: ["shipped"],
     shipped: ["out_for_delivery"],
     out_for_delivery: ["delivered"],
     delivered: ["returned"],
@@ -539,6 +554,8 @@ const updateOrderStatusAdminController = asyncHandler(async (req, res) => {
     order.returnedAt = new Date().toLocaleString();
   } else if (orderStatus === "refunded") {
     order.paymentStatus = "refunded";
+  } else if (orderStatus === "confirmed" && !order?.paymentMethod) {
+    throw new APIError("Payment Method not added.");
   }
 
   order.orderStatus = orderStatus;
@@ -577,6 +594,40 @@ const updateOrderActionStatusAdminController = asyncHandler(
   },
 );
 
+const assignOrderToDeliveryBoyAdminController = asyncHandler(
+  async (req, res) => {
+    const { orderId } = req.params;
+    const { deliveryBoyId } = req.body;
+
+    if (!orderId || !deliveryBoyId) {
+      throw new APIError("Ids not found", 404);
+    }
+
+    const deliveryBoy = await DeliveryBoy.findById(deliveryBoyId);
+
+    if (!deliveryBoy) {
+      throw new APIError("Delivery boy not found", 400);
+    }
+
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      throw new APIError("Order not found", 400);
+    }
+
+    order.deliveryBoy = deliveryBoy._id;
+    deliveryBoy.currentOrders += 1;
+
+    await order.save();
+    await deliveryBoy.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Order assigned successfully",
+    });
+  },
+);
+
 export {
   createOrderController,
   ordersAdminController,
@@ -589,4 +640,5 @@ export {
   updateOrderPaymentController,
   createDirectOrderController,
   updateOrderActionStatusAdminController,
+  assignOrderToDeliveryBoyAdminController,
 };

@@ -45,7 +45,7 @@ const signInController = asyncHandler(async (req, res) => {
   const passwordExist = await emailExist.comparePassword(password);
 
   if (!passwordExist) {
-    throw new APIError("Account not found.", 400);
+    throw new APIError("Invalid Password.", 400);
   }
 
   const token = jwt.sign(
