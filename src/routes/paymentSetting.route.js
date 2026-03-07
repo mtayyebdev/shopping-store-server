@@ -1,6 +1,7 @@
 import {
   getPaymentAdminController,
   updatePaymentAdminController,
+  getPaymentController,
 } from "../controllers/paymentSetting.controller.js";
 import express from "express";
 import {
@@ -10,6 +11,9 @@ import {
 
 const PaymentSettingRouter = express.Router();
 
+PaymentSettingRouter.route("/get-payments").get(getPaymentController);
+
+// admin routes.....
 PaymentSettingRouter.route("/admin/get-payment").get(
   verifyUser,
   authorizeUser(["admin"]),

@@ -91,7 +91,7 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
 
     if (setting.logo?.url) {
       const deletedLogo = await DeleteImageFromCloudinary(
-        setting?.logo?.publicId,
+        setting.logo.publicId,
       );
 
       if (!deletedLogo) {
@@ -99,8 +99,8 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
       }
     }
 
-    setting.logo?.url = uploadedLogo?.secure_url;
-    setting.logo?.publicId = uploadedLogo?.public_id;
+    setting.logo.url = uploadedLogo?.secure_url;
+    setting.logo.publicId = uploadedLogo?.public_id;
   }
 
   if (favicon?.path) {
@@ -113,9 +113,9 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
       throw new APIError("Something went wrong while uploading favicon", 400);
     }
 
-    if (setting.favicon?.url) {
+    if (setting.favicon.url) {
       const deletedFavicon = await DeleteImageFromCloudinary(
-        setting?.favicon?.publicId,
+        setting.favicon.publicId,
       );
 
       if (!deletedFavicon) {
@@ -126,8 +126,8 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
       }
     }
 
-    setting.favicon?.url = uploadedFavicon?.secure_url;
-    setting.favicon?.publicId = uploadedFavicon?.public_id;
+    setting.favicon.url = uploadedFavicon?.secure_url;
+    setting.favicon.publicId = uploadedFavicon?.public_id;
   }
 
   await setting.save({ validateBeforeSave: false });

@@ -9,6 +9,10 @@ const paymentSettingsSchema = new mongoose.Schema(
 
     paymentMethods: {
       cod: {
+        name:{
+          type:String,
+          default:"COD"
+        },
         enabled: {
           type: Boolean,
           default: true,
@@ -16,6 +20,10 @@ const paymentSettingsSchema = new mongoose.Schema(
       },
 
       stripe: {
+         name:{
+          type:String,
+          default:"Stripe"
+        },
         enabled: {
           type: Boolean,
           default: false,
@@ -26,6 +34,10 @@ const paymentSettingsSchema = new mongoose.Schema(
       },
 
       paypal: {
+         name:{
+          type:String,
+          default:"Paypal"
+        },
         enabled: {
           type: Boolean,
           default: false,
@@ -40,6 +52,10 @@ const paymentSettingsSchema = new mongoose.Schema(
       },
 
       razorpay: {
+         name:{
+          type:String,
+          default:"RazorPay"
+        },
         enabled: {
           type: Boolean,
           default: false,

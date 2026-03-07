@@ -1,5 +1,5 @@
 import User from "../models/user.model.js";
-import DeliveryBoy from "../models/delivery_boy.js";
+import DeliveryBoy from "../models/deliveryBoy.model.js";
 import jwt from "jsonwebtoken";
 import { APIError } from "../utils/apiError.js";
 

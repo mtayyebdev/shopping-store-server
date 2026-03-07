@@ -257,7 +257,7 @@ const getDeliveryBoysAdminController = asyncHandler(async (req, res) => {
     },
   ]);
 
-  const totalDeiveryBoys = await DeliveryBoy.countDocuments({
+  const totalDeliveryBoys = await DeliveryBoy.countDocuments({
     ...filters,
   });
 
@@ -297,14 +297,14 @@ const getDeliveryBoysAdminController = asyncHandler(async (req, res) => {
     },
   ]);
 
-  const totalPages = Math.ceil(totalDeiveryBoys / limit);
+  const totalPages = Math.ceil(totalDeliveryBoys / limit);
 
   return res.status(200).json({
     success: true,
     message: "Delivery boys found",
     data: deliveryBoys,
     totalPages,
-    totalDeiveryBoys,
+    totalDeliveryBoys,
     stats: deliveryBoyStats[0],
   });
 });

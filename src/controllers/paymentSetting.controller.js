@@ -1,6 +1,17 @@
-import PaymentSetting from "../models/paymentSetting.js";
+import PaymentSetting from "../models/paymentSetting.model.js";
 import { asyncHandler } from "../utils/trycatch.js";
 
+const getPaymentController = asyncHandler(async (req, res) => {
+  const payment = await PaymentSetting.findOne();
+
+  return res.status(200).json({
+    success: true,
+    message: "Payments found",
+    data: payment,
+  });
+});
+
+// admin controllers......................
 // get payments / admin
 const getPaymentAdminController = asyncHandler(async (req, res) => {
   const payment = await PaymentSetting.findOne();
@@ -74,4 +85,4 @@ const updatePaymentAdminController = asyncHandler(async (req, res) => {
   });
 });
 
-export { getPaymentAdminController, updatePaymentAdminController };
+export { getPaymentAdminController, updatePaymentAdminController,getPaymentController };

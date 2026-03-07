@@ -1,7 +1,6 @@
 import express, { json, urlencoded } from "express";
 import cors from "cors";
 import "dotenv/config";
-import ConnectDB from "./src/config/db.config.js";
 import { errorHandler } from "./src/middlewares/errorhandler.middleware.js";
 import cookieParser from "cookie-parser";
 
@@ -42,8 +41,4 @@ app.use("/api/payment-setting", PaymentSettingRouter);
 
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log("Server is running on port: ", PORT);
-  ConnectDB();
-});
+export { app };
