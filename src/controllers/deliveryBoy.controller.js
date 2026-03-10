@@ -1,25 +1,155 @@
-import DeliveryBoy from "../models/delivery_boy.js";
+import DeliveryBoy from "../models/deliveryBoy.model.js";
 import Order from "../models/order.model.js";
 import { APIError } from "../utils/apiError.js";
 import { asyncHandler } from "../utils/trycatch.js";
+import { getDateFilter } from "../utils/dateFilter.js";
 
 // get assigned orders / delivery boy
 const getAssignedOrdersController = asyncHandler(async (req, res) => {
-  const { deliveryBoyId } = req.deliveryBoy._id;
+  const { search, status, time } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 15;
+  const skip = (page - 1) * limit;
 
-  if (!deliveryBoyId) {
-    throw new APIError("Delivery boy not found", 404);
+  const riderId = req.deliveryBoy?._id;
+
+  const filters = {};
+
+  if (search) {
+    filters.orderId = {
+      $regex: String(search),
+      $options: "i",
+    };
   }
 
-  const assignedOrders = await Order.find({
-    deliveryBoy: deliveryBoyId,
+  if (status !== "all") {
+    filters.orderStatus = status;
+  }
+
+  if (time) {
+    Object.assign(filters, getDateFilter(time));
+  }
+
+  const assignedOrders = await Order.aggregate([
+    {
+      $match: {
+        deliveryBoy: riderId,
+        actionStatus: "active",
+        ...filters,
+      },
+    },
+    {
+      $sort: { createdAt: -1 },
+    },
+    {
+      $skip: skip,
+    },
+    {
+      $limit: limit,
+    },
+    {
+      $project: {
+        _id: 1,
+        orderId: 1,
+        shippingAddress: 1,
+        "items.length": 1,
+        paymentStatus: 1,
+        orderStatus: 1,
+        createdAt: 1,
+      },
+    },
+  ]);
+
+  const assignedOrdersStats = await Order.aggregate([
+    {
+      $match: { deliveryBoy: riderId },
+    },
+    {
+      $facet: {
+        totalAssigned: [{ $count: "count" }],
+        activeDelivery: [
+          {
+            $match: {
+              orderStatus: {
+                $in: ["confirmed", "processing", "shipped", "out_for_delivery"],
+              },
+              actionStatus: "active",
+            },
+          },
+          { $count: "count" },
+        ],
+        delivered: [
+          { $match: { orderStatus: "delivered", actionStatus: "active" } },
+          { $count: "count" },
+        ],
+        codPending: [
+          {
+            $match: {
+              paymentMethod: "cod",
+              paymentStatus: "pending",
+              actionStatus: "active",
+            },
+          },
+          { $count: "count" },
+        ],
+      },
+    },
+    {
+      $project: {
+        totalAssigned: {
+          $ifNull: [{ $arrayElemAt: ["$totalAssigned.count", 0] }, 0],
+        },
+        activeDelivery: {
+          $ifNull: [{ $arrayElemAt: ["$activeDelivery.count", 0] }, 0],
+        },
+        delivered: {
+          $ifNull: [{ $arrayElemAt: ["$delivered.count", 0] }, 0],
+        },
+        codPending: {
+          $ifNull: [{ $arrayElemAt: ["$codPending.count", 0] }, 0],
+        },
+      },
+    },
+  ]);
+
+  const totalAssignedOrders = await Order.countDocuments({
+    deliveryBoy: riderId,
     actionStatus: "active",
+    ...filters,
   });
+
+  const totalPages = Math.ceil(totalAssignedOrders / limit);
 
   return res.status(200).json({
     success: true,
     message: "Orders found successfully",
     data: assignedOrders,
+    totalAssignedOrders,
+    totalPages,
+    stats: assignedOrdersStats[0],
+  });
+});
+
+const getAssignedOrderController = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+
+  if (!orderId) {
+    throw new APIError("Order not found", 404);
+  }
+
+  const order = await Order.findOne({
+    _id: orderId,
+    deliveryBoy: req.deliveryBoy._id,
+  });
+
+  if (!order) {
+    throw new APIError("Order not found", 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Order Data found",
+    data: order,
   });
 });
 
@@ -111,6 +241,7 @@ const loginDeliveryBoyController = asyncHandler(async (req, res) => {
   }
 
   const token = await phoneExist.generateJWTToken();
+
   await res.cookie("riderToken", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production" ? true : false,
@@ -145,6 +276,17 @@ const getSingleDeliveryBoyController = asyncHandler(async (req, res) => {
   });
 });
 
+const logoutDeliveryBoyController = asyncHandler(async (req, res) => {
+  await res.cookie("riderToken", {
+    maxAge: 0,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "You Logout successfully",
+  });
+});
+
 // admin controllers...........................
 // create delivery boy / admin
 const createDeliveryBoyAdminController = asyncHandler(async (req, res) => {
@@ -169,11 +311,11 @@ const createDeliveryBoyAdminController = asyncHandler(async (req, res) => {
     password,
     vehicleType,
     vehicleNumber,
-    "location.country": country,
-    "location.city": city,
-    "location.state": state,
-    "location.postalCode": postalCode,
-    "location.fullAddress": fullAddress,
+    "address.country": country,
+    "address.city": city,
+    "address.state": state,
+    "address.postalCode": postalCode,
+    "address.fullAddress": fullAddress,
   });
 
   if (!deliBoy) {
@@ -217,16 +359,14 @@ const getDeliveryBoysAdminController = asyncHandler(async (req, res) => {
       vehicleType === "all" ? { $in: ["bike", "car", "cycle"] } : vehicleType;
   }
 
+  const workloadFilters = {
+    idle: { currentOrders: 0 },
+    normal: { currentOrders: { $gt: 0, $lte: 3 } },
+    busy: { currentOrders: { $gt: 3 } },
+  };
+
   if (workload !== "all") {
-    if (workload === "idle") {
-      filters.currentOrders = 0;
-    } else if (workload === "normal") {
-      filters.currentOrders = {
-        $and: [{ currentOrders: { $gt: 0 } }, { currentOrders: { $lte: 3 } }],
-      };
-    } else if (workload === "busy") {
-      filters.currentOrders = { currentOrders: { $gt: 3 } };
-    }
+    Object.assign(filters, workloadFilters[workload]);
   }
 
   const deliveryBoys = await DeliveryBoy.aggregate([
@@ -365,6 +505,8 @@ const updateDeliveryBoyAdminController = asyncHandler(async (req, res) => {
   if (postalCode) rider.address.postalCode = postalCode;
   if (fullAddress) rider.address.fullAddress = fullAddress;
 
+  await rider.save();
+
   return res.status(200).json({
     success: true,
     message: "Delivery boy data updated",
@@ -422,6 +564,7 @@ const updateActionStatusDeliveryBoyAdminController = asyncHandler(
 
 export {
   createDeliveryBoyAdminController,
+  getAssignedOrderController,
   getAssignedOrdersController,
   updateActionStatusDeliveryBoyAdminController,
   deleteDeliveryBoyAdminController,
@@ -431,4 +574,5 @@ export {
   getDeliveryBoysAdminController,
   updateDeliveryBoyAdminController,
   updateAssignedOrderStatusController,
+  logoutDeliveryBoyController,
 };

@@ -10,6 +10,8 @@ import {
   updateActionStatusDeliveryBoyAdminController,
   updateAssignedOrderStatusController,
   updateDeliveryBoyAdminController,
+  logoutDeliveryBoyController,
+  getAssignedOrderController,
 } from "../controllers/deliveryBoy.controller.js";
 import { validateWithZod } from "../middlewares/zodValidation.middleware.js";
 import {
@@ -36,6 +38,14 @@ DeliveryBoyRouter.route("/get-deliveryboy").get(
 DeliveryBoyRouter.route("/update-orderstatus/:orderId").patch(
   verifyRider,
   updateAssignedOrderStatusController,
+);
+DeliveryBoyRouter.route("/logout").get(
+  verifyRider,
+  logoutDeliveryBoyController,
+);
+DeliveryBoyRouter.route("/get-order/:orderId").get(
+  verifyRider,
+  getAssignedOrderController,
 );
 
 // admin routes...............

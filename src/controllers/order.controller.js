@@ -2,7 +2,7 @@ import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
 import Cart from "../models/cart.model.js";
 import Review from "../models/review.model.js";
-import DeliveryBoy from "../models/delivery_boy.js";
+import DeliveryBoy from "../models/deliveryBoy.model.js";
 import { asyncHandler } from "../utils/trycatch.js";
 import { APIError } from "../utils/apiError.js";
 import { sendEmail } from "../utils/sendEmail.js";
@@ -391,6 +391,7 @@ const ordersAdminController = asyncHandler(async (req, res) => {
         paymentMethod: 1,
         paymentStatus: 1,
         actionStatus: 1,
+        deliveryBoy: 1,
       },
     },
     { $sort: { createdAt: -1 } },
@@ -615,6 +616,13 @@ const assignOrderToDeliveryBoyAdminController = asyncHandler(
       throw new APIError("Order not found", 400);
     }
 
+    if (order?.orderStatus !== "confirmed") {
+      throw new APIError(
+        "Only confirmed orders can be assigned to a rider.",
+        400,
+      );
+    }
+
     order.deliveryBoy = deliveryBoy._id;
     deliveryBoy.currentOrders += 1;
 
@@ -627,6 +635,41 @@ const assignOrderToDeliveryBoyAdminController = asyncHandler(
     });
   },
 );
+
+const getDeliveryBoysAdminController = asyncHandler(async (req, res) => {
+  const { search } = req.query;
+
+  const riders = await DeliveryBoy.aggregate([
+    {
+      $match: {
+        $or: [
+          { name: { $regex: String(search), $options: "i" } },
+          { phone: { $regex: String(search), $options: "i" } },
+          { email: { $regex: String(search), $options: "i" } },
+        ],
+        actionStatus: "active",
+      },
+    },
+    {
+      $limit: 10,
+    },
+    {
+      $project: {
+        _id: 1,
+        name: 1,
+        phone: 1,
+        vehicleType: 1,
+        currentOrders: 1,
+      },
+    },
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: "Riders found",
+    data: riders,
+  });
+});
 
 export {
   createOrderController,
@@ -641,4 +684,5 @@ export {
   createDirectOrderController,
   updateOrderActionStatusAdminController,
   assignOrderToDeliveryBoyAdminController,
+  getDeliveryBoysAdminController,
 };

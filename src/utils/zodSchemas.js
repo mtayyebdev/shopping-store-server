@@ -184,25 +184,28 @@ const updateDeliveryBoySchema = z.object({
     .string()
     .min(4, "Name must be at least 4 characters")
     .max(50, "Name must be at most 50 characters")
-    .optional(),
-  email: z.email().optional(),
+    .optional()
+    .or(z.literal("")),
+  email: z.email().optional().or(z.literal("")),
   phone: z
     .string()
     .min(11, "Phone must be at least 11 characters")
     .max(11, "Phone must be most 11 characters")
-    .optional(),
+    .optional()
+    .or(z.literal("")),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
     .max(100, "Password must be most 100 characters")
-    .optional(),
+    .optional()
+    .or(z.literal("")),
   vehicleType: z.string().optional(),
   vehicleNumber: z.string().optional(),
   country: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   postalCode: z.string().optional(),
-  fullAddress: z.string().optional()
+  fullAddress: z.string().optional(),
 });
 
 export {

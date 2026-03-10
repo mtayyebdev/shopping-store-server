@@ -11,6 +11,7 @@ import {
   createDirectOrderController,
   updateOrderActionStatusAdminController,
   assignOrderToDeliveryBoyAdminController,
+  getDeliveryBoysAdminController,
 } from "../controllers/order.controller.js";
 import {
   authorizeUser,
@@ -60,5 +61,10 @@ OrderRouter.route("/admin/assign-order/:orderId").patch(
   verifyUser,
   authorizeUser(["admin"]),
   assignOrderToDeliveryBoyAdminController,
+);
+OrderRouter.route("/admin/get-riders").get(
+  verifyUser,
+  authorizeUser(["admin"]),
+  getDeliveryBoysAdminController,
 );
 export { OrderRouter };
