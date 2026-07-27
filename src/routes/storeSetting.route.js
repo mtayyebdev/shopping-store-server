@@ -2,6 +2,7 @@ import express from "express";
 import {
   getStoreSettingAdminController,
   updateStoreSettingAdminController,
+  getStoreSettingsController,
 } from "../controllers/storeSetting.controller.js";
 import {
   authorizeUser,
@@ -11,6 +12,9 @@ import { upload } from "../utils/uploadFile.js";
 
 const StoreSettingRouter = express.Router();
 
+StoreSettingRouter.route("/get-settings").get(getStoreSettingsController);
+
+// admin routes.......
 StoreSettingRouter.route("/admin/get-setting").get(
   verifyUser,
   authorizeUser(["admin"]),

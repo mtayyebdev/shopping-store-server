@@ -22,6 +22,8 @@ import {
   resetPasswordController,
   sendOTPController,
   verifyOTPController,
+  updateAdminDataController,
+  updateAdminPasswordController,
 } from "../controllers/auth.controller.js";
 import {
   verifyUser,
@@ -114,6 +116,17 @@ AuthRouter.route("/admin/update-user-status/:id").patch(
   verifyUser,
   authorizeUser(["admin"]),
   updateUserStatusAdminController,
+);
+AuthRouter.route("/admin/update-password").patch(
+  verifyUser,
+  authorizeUser(["admin"]),
+  updateAdminPasswordController,
+);
+AuthRouter.route("/admin/update-profile").patch(
+  verifyUser,
+  authorizeUser(["admin"]),
+  upload.single("avatar"),
+  updateAdminDataController,
 );
 
 export { AuthRouter };

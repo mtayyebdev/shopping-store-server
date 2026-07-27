@@ -13,16 +13,7 @@ const storeSettingSchema = new mongoose.Schema(
       required: true,
       lowercase: true,
     },
-
-    supportEmail: {
-      type: String,
-      lowercase: true,
-    },
-
-    phone: {
-      type: String,
-    },
-
+    
     logo: {
       url: String,
       publicId: String,
@@ -98,12 +89,27 @@ const storeSettingSchema = new mongoose.Schema(
         default: 30,
       },
     },
-
-    socialLinks: [],
+    socialLinks: [], // {lable:"",url:""}
     language: String,
     lowStockAlert: {
       type: Number,
       default: 10,
+    },
+    twoFactorAuth: {
+      type: Boolean,
+      default: false,
+    },
+    loginAlerts: {
+      type: Boolean,
+      default: true,
+    },
+    emailOrderUpdates: {
+      type: Boolean,
+      default: true,
+    },
+    pushNotifications: {
+      type: Boolean,
+      default: true,
     },
   },
   { timestamps: true },

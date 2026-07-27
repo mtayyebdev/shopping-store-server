@@ -6,6 +6,23 @@ import {
   DeleteImageFromCloudinary,
 } from "../utils/uploadFile.js";
 
+const getStoreSettingsController = asyncHandler(async (req, res) => {
+  const settings = await StoreSetting.findOne().select({
+    orderSettings: 0,
+    lowStockAlert: 0,
+    twoFactorAuth: 0,
+    loginAlerts: 0,
+    emailOrderUpdates: 0,
+    pushNotifications: 0,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Store settings found",
+    data: settings,
+  });
+});
+
 // get setting / admin
 const getStoreSettingAdminController = asyncHandler(async (req, res) => {
   const setting = await StoreSetting.findOne();
@@ -29,8 +46,6 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
   const {
     storeName,
     storeEmail,
-    supportEmail,
-    phone,
     currencyCode,
     currencySymbol,
     country,
@@ -49,6 +64,10 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
     socialLinks,
     language,
     lowStockAlert,
+    twoFactorAuth,
+    loginAlerts,
+    emailOrderUpdates,
+    pushNotifications,
   } = req.body;
   const logo = req.files?.["logo"]?.[0] || "";
   const favicon = req.files?.["favicon"]?.[0] || "";
@@ -57,8 +76,6 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
 
   if (storeName) setting.storeName = storeName;
   if (storeEmail) setting.storeEmail = storeEmail;
-  if (supportEmail) setting.supportEmail = supportEmail;
-  if (phone) setting.phone = phone;
   if (currencyCode) setting.currency.code = currencyCode;
   if (currencySymbol) setting.currency.symbol = currencySymbol;
   if (country) setting.address.country = country;
@@ -78,9 +95,21 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
     setting.orderSettings.autoConfirmOrder = autoConfirmOrder;
   }
   if (cancelOrderTime) setting.orderSettings.cancelOrderTime = cancelOrderTime;
-  if (socialLinks) setting.socialLinks = socialLinks;
+  if (socialLinks) setting.socialLinks = JSON.parse(socialLinks);
   if (language) setting.language = language;
   if (lowStockAlert) setting.lowStockAlert = lowStockAlert;
+  if (pushNotifications != undefined) {
+    setting.pushNotifications = pushNotifications;
+  }
+  if (emailOrderUpdates != undefined) {
+    setting.emailOrderUpdates = emailOrderUpdates;
+  }
+  if (loginAlerts != undefined) {
+    setting.loginAlerts = loginAlerts;
+  }
+  if (twoFactorAuth != undefined) {
+    setting.twoFactorAuth = twoFactorAuth;
+  }
 
   if (logo?.path) {
     const uploadedLogo = await UploadToCloudinary(logo?.path, "Store Logo");
@@ -138,4 +167,8 @@ const updateStoreSettingAdminController = asyncHandler(async (req, res) => {
   });
 });
 
-export { getStoreSettingAdminController, updateStoreSettingAdminController };
+export {
+  getStoreSettingAdminController,
+  updateStoreSettingAdminController,
+  getStoreSettingsController,
+};

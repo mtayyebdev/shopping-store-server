@@ -797,6 +797,99 @@ const updateUserStatusAdminController = asyncHandler(async (req, res) => {
   });
 });
 
+const updateAdminDataController = asyncHandler(async (req, res) => {
+  const { name, phone, email, gender, birthDay } = req.body;
+  const file = req.file || "";
+
+  const user = await User.findById(req.user?._id);
+
+  if (!user) {
+    throw new APIError("User not found.", 404);
+  }
+
+  if (name) user.name = name;
+  if (birthDay) user.birthDay = birthDay;
+  if (gender) user.gender = gender;
+
+  if (phone) {
+    if (phone.length !== 11) {
+      throw new APIError("Phone number must be 11 digits", 400);
+    }
+
+    const phoneExist = await User.findOne({ phone, _id: { $ne: user._id } });
+    if (phoneExist) {
+      throw new APIError("Phone number already exist please try another", 400);
+    }
+
+    user.phone = phone;
+  }
+
+  if (email) {
+    if (!isValidEmail(email)) {
+      throw new APIError("Invalid email", 400);
+    }
+
+    const emailExist = await User.findOne({ email, _id: { $ne: user._id } });
+    if (emailExist) {
+      throw new APIError("Email already exist please try another", 400);
+    }
+
+    user.email = email;
+  }
+
+  if (file?.path) {
+    const uploadFile = await UploadToCloudinary(file.path, "users");
+    if (uploadFile.secure_url) {
+      if (user.avatar?.publicId) {
+        await DeleteImageFromCloudinary(user.avatar.publicId);
+      }
+
+      user.avatar.url = uploadFile.secure_url;
+      user.avatar.publicId = uploadFile.public_id;
+    }
+  }
+
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "User profile updated successfully.",
+  });
+});
+
+const updateAdminPasswordController = asyncHandler(async (req, res) => {
+  const { newPassword, oldPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    throw new APIError("Password are required", 404);
+  }
+
+  if (newPassword?.length < 7) {
+    throw new APIError("Password must be at least 6 characters long", 400);
+  }
+
+  const user = await User.findById(req.user?._id);
+
+  if (!user) {
+    throw new APIError("User not found", 404);
+  }
+
+  const isValidPass = await user.comparePassword(oldPassword);
+
+  if (!isValidPass) {
+    throw new APIError("Incorrect old password", 400);
+  }
+
+  user.password = newPassword;
+
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Password updated successfully",
+  });
+});
+
 export {
   allUsersAdminController,
   signInController,
@@ -820,4 +913,6 @@ export {
   resetPasswordController,
   sendOTPController,
   verifyOTPController,
+  updateAdminDataController,
+  updateAdminPasswordController,
 };

@@ -11,6 +11,7 @@ const categoriesController = asyncHandler(async (req, res) => {
   const categories = await Category.find({ actionStatus: "active" }).select(
     "-filters",
   );
+
   return res.status(200).json({
     success: true,
     message: "Categories found",

@@ -2,11 +2,6 @@ import mongoose from "mongoose";
 
 const paymentSettingsSchema = new mongoose.Schema(
   {
-    currency: {
-      type: String,
-      default: "PKR",
-    },
-
     paymentMethods: {
       cod: {
         name:{
@@ -17,6 +12,7 @@ const paymentSettingsSchema = new mongoose.Schema(
           type: Boolean,
           default: true,
         },
+        icon:String,
       },
 
       stripe: {
@@ -28,6 +24,7 @@ const paymentSettingsSchema = new mongoose.Schema(
           type: Boolean,
           default: false,
         },
+        icon:String,
         publicKey: String,
         secretKey: String,
         webhookSecret: String,
@@ -44,6 +41,7 @@ const paymentSettingsSchema = new mongoose.Schema(
         },
         clientId: String,
         clientSecret: String,
+        icon:String,
         mode: {
           type: String,
           enum: ["sandbox", "live"],
@@ -60,6 +58,7 @@ const paymentSettingsSchema = new mongoose.Schema(
           type: Boolean,
           default: false,
         },
+        icon:String,
         keyId: String,
         keySecret: String,
       },

@@ -3,11 +3,13 @@ import Product from "../models/product.model.js";
 import Cart from "../models/cart.model.js";
 import Review from "../models/review.model.js";
 import DeliveryBoy from "../models/deliveryBoy.model.js";
+import StoreSetting from "../models/storeSetting.model.js";
 import { asyncHandler } from "../utils/trycatch.js";
 import { APIError } from "../utils/apiError.js";
 import { sendEmail } from "../utils/sendEmail.js";
 import { getDateFilter } from "../utils/dateFilter.js";
 import { generateUniqueID } from "../utils/generateID.js";
+import { stripe } from "../utils/stripe.js";
 
 const createOrderController = asyncHandler(async (req, res) => {
   const {
@@ -194,12 +196,42 @@ const createDirectOrderController = asyncHandler(async (req, res) => {
 });
 
 const ordersController = asyncHandler(async (req, res) => {
-  const orders = await Order.find({
-    user: req.user._id,
-    actionStatus: "active",
-  })
-    .sort({ createdAt: -1 })
-    .select("-paymentResult");
+  const { activeTab = "all", search = "" } = req.query;
+
+  const filters = {};
+  if (activeTab !== "all" && activeTab !== "review") {
+    filters.orderStatus = activeTab;
+  } else if (activeTab === "review") {
+    filters.$and = [
+      { orderStatus: "delivered" },
+      { items: { $elemMatch: { isReviewed: false } } },
+    ];
+  }
+
+  if (search) {
+    filters.$or = [
+      { orderId: { $regex: String(search), $options: "i" } },
+      {
+        items: {
+          $elemMatch: { name: { $regex: String(search), $options: "i" } },
+        },
+      },
+    ];
+  }
+
+  const orders = await Order.aggregate([
+    {
+      $match: { user: req.user._id, actionStatus: "active", ...filters },
+    },
+    {
+      $sort: { createdAt: -1 },
+    },
+    {
+      $project: {
+        paymentResult: 0,
+      },
+    },
+  ]);
 
   return res.status(200).json({
     success: true,
@@ -278,15 +310,17 @@ const cancelOrderController = asyncHandler(async (req, res) => {
 
 const updateOrderPaymentController = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { paymentMethod } = req.body;
+  let { paymentMethod } = req.body;
 
   if (!id) {
     throw new APIError("Order Id not found.", 404);
   }
 
-  if (paymentMethod !== "cod") {
+  paymentMethod = paymentMethod?.toLowerCase();
+
+  if (paymentMethod !== "cod" && paymentMethod !== "stripe") {
     throw new APIError(
-      "Please select payment method Cash on Delivery, Other payment methods are coming soon.",
+      "Please select payment method Cash on Delivery or Stripe, Other payment methods are coming soon.",
       404,
     );
   }
@@ -297,8 +331,53 @@ const updateOrderPaymentController = asyncHandler(async (req, res) => {
     actionStatus: "active",
   });
 
+  if (!order) {
+    throw new APIError("Something went wrong", 400);
+  }
+
+  let sessionUrl = null;
+
   if (paymentMethod === "cod") {
     order.paymentMethod = paymentMethod;
+  } else if (paymentMethod == "stripe") {
+    const settings=await StoreSetting.findOne().select("currency");
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: order.items?.map((item) => ({
+        price_data: {
+          currency: settings?.currency?.code,
+          product_data: {
+            name: item.name,
+          },
+          unit_amount: item.price * 100,
+        },
+        quantity: item.quantity,
+      })),
+
+      shipping_options: [
+        {
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: {
+              amount: order.shippingPrice*100,
+              currency: settings?.currency?.code,
+            },
+            display_name: "Standard Delivery",
+          },
+        },
+      ],
+
+      metadata: {
+        orderId: order.orderId,
+      },
+
+      success_url: `${process.env.CLIENT_URL}/account/orders`,
+      cancel_url: `${process.env.CLIENT_URL}/account/orders`,
+    });
+
+    sessionUrl = session.url;
   }
 
   await order.save();
@@ -306,6 +385,7 @@ const updateOrderPaymentController = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Payment added successfully.",
+    sessionUrl,
   });
 });
 

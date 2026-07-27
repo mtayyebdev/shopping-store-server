@@ -15,8 +15,19 @@ import { ReturnRouter } from "./src/routes/return.route.js";
 import { DeliveryBoyRouter } from "./src/routes/deliveryBoy.route.js";
 import { StoreSettingRouter } from "./src/routes/storeSetting.route.js";
 import { PaymentSettingRouter } from "./src/routes/paymentSetting.route.js";
+import { DashboardRouter } from "./src/routes/dashboard.route.js";
+
+// webHooks....
+import { handleStripeWebHook } from "./src/utils/webHooks.js";
 
 const app = express();
+
+// webHooks for payments.............
+app.post(
+  "/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  handleStripeWebHook,
+);
 
 const options = {
   origin: [process.env.CLIENT_URL],
@@ -38,6 +49,8 @@ app.use("/api/return", ReturnRouter);
 app.use("/api/rider", DeliveryBoyRouter);
 app.use("/api/store-setting", StoreSettingRouter);
 app.use("/api/payment-setting", PaymentSettingRouter);
+app.use("/api/dashboard", DashboardRouter);
+app.use("/icons", express.static("public/payments-icons"));
 
 app.use(errorHandler);
 
